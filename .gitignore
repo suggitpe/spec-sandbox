@@ -22,6 +22,42 @@ mcp.json
 *.pem
 *.key
 
+# --- Kotlin Multiplatform & Gradle ---
+# Gradle build artifacts
+build/
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+
+# Kotlin/Native
+.konan/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Android Studio
+local.properties
+*.apk
+*.aab
+*.ap_
+*.dex
+captures/
+
+# SQLDelight generated files
+**/generated/
+
+# Kotlin compilation cache
+kotlin-js-store/
+
+# Kotlin Multiplatform
+**/kotlin-js-store/
+**/compileSync/
+
 # --- Common Language Overlays ---
 # Node / JS
 node_modules/

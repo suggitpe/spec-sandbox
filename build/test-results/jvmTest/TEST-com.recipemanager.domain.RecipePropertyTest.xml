@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.recipemanager.domain.RecipePropertyTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-01-13T21:37:10.422Z" hostname="SUGGS-THINKPAD" time="0.724">
-  <properties/>
-  <testcase name="Property 1: Recipe Creation Completeness - Feature: recipe-manager, Property 1: For any valid recipe data containing title, ingredients, and cooking steps, creating and then retrieving the recipe should return all provided data with proper validation[jvm]" classname="com.recipemanager.domain.RecipePropertyTest" time="0.724"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>
