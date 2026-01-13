@@ -34,130 +34,138 @@ graph TB
 
 ### Technology Stack
 
-Based on current mobile development best practices and cross-platform requirements:
+Based on modern mobile development best practices and cross-platform requirements:
 
-- **Framework**: React Native (chosen for its mature ecosystem, strong community support, and excellent performance for recipe management use cases)
-- **State Management**: Redux Toolkit with RTK Query for efficient data management and caching
-- **Local Storage**: SQLite with Watermelon DB for offline-first data persistence
-- **Photo Management**: React Native Image Picker with local file system storage and cloud sync
-- **Notifications**: React Native Push Notifications with background task scheduling
-- **Cloud Storage**: Firebase Storage for photo sync and Firestore for recipe data sync
-- **Navigation**: React Navigation v6 for smooth mobile navigation patterns
+- **Framework**: Kotlin Multiplatform Mobile (KMM) for shared business logic
+- **UI Framework**: Compose Multiplatform for native UI experiences
+- **Database**: SQLDelight with SQLite for type-safe database operations
+- **Networking**: Ktor Client for HTTP operations and API calls
+- **Serialization**: Kotlinx Serialization for JSON handling
+- **Coroutines**: Kotlinx Coroutines for asynchronous operations
+- **Date/Time**: Kotlinx DateTime for cross-platform date handling
+- **Dependency Injection**: Manual DI with factory pattern
+- **Testing**: Kotest for unit testing and property-based testing with expressive assertions, Cucumber Serenity for BDD feature testing
+- **Logging**: Kermit for multiplatform logging
+- **Cloud Storage**: Firebase SDK (platform-specific implementations)
 
 ## Components and Interfaces
 
 ### Core Components
 
-#### 1. Recipe Management Component
-- **RecipeService**: Handles CRUD operations for recipes
-- **RecipeValidator**: Validates recipe data integrity and completeness
-- **RecipeSearchEngine**: Provides search functionality across recipes
+#### 1. Domain Layer (Business Logic)
+- **RecipeService**: Handles CRUD operations and business rules for recipes
+- **ValidationService**: Validates recipe data integrity and completeness
+- **SearchEngine**: Provides search functionality across recipes with relevance scoring
 
-#### 2. Photo Management Component
-- **PhotoService**: Manages photo capture, storage, and association with recipe stages
-- **PhotoOptimizer**: Handles image compression and optimization for mobile storage
-- **PhotoSyncManager**: Manages cloud synchronization of photos
-
-#### 3. Sharing Component
-- **ShareService**: Handles recipe sharing across multiple platforms
-- **ShareFormatter**: Formats recipe data for different sharing channels
-- **RecipeCopyManager**: Manages copying shared recipes to user collections
-
-#### 4. Timer and Notification Component
-- **TimerService**: Manages multiple concurrent cooking timers
-- **NotificationManager**: Handles background notifications and alerts
-- **CookingSessionManager**: Coordinates timers and reminders during active cooking
-
-#### 5. Data Synchronization Component
+#### 2. Data Layer (Persistence & Sync)
+- **RecipeRepository**: Manages local SQLite operations using SQLDelight
+- **PhotoRepository**: Handles photo storage and cloud synchronization
 - **SyncManager**: Orchestrates data synchronization between local and cloud storage
-- **ConflictResolver**: Handles data conflicts during synchronization
-- **OfflineQueueManager**: Manages operations queued while offline
+
+#### 3. Presentation Layer (UI)
+- **RecipeViewModel**: Manages UI state and user interactions for recipe screens
+- **PhotoViewModel**: Handles photo capture, display, and management UI state
+- **TimerViewModel**: Coordinates cooking timers and notifications
+
+#### 4. Platform Layer (Native Features)
+- **DatabaseDriver**: Platform-specific SQLite driver implementations
+- **PhotoCapture**: Native camera and gallery access
+- **NotificationManager**: Platform-specific push notification handling
+- **FileManager**: Native file system operations for photo storage
 
 ### Interface Definitions
 
 #### Recipe Interface
-```typescript
-interface Recipe {
-  id: string;
-  title: string;
-  description?: string;
-  ingredients: Ingredient[];
-  steps: CookingStep[];
-  preparationTime: number;
-  cookingTime: number;
-  servings: number;
-  tags: string[];
-  createdAt: Date;
-  updatedAt: Date;
-  version: number;
-  parentRecipeId?: string; // For recipe upgrades
-}
+```kotlin
+@Serializable
+data class Recipe(
+    val id: String,
+    val title: String,
+    val description: String? = null,
+    val ingredients: List<Ingredient>,
+    val steps: List<CookingStep>,
+    val preparationTime: Int, // in minutes
+    val cookingTime: Int, // in minutes
+    val servings: Int,
+    val tags: List<String>,
+    val createdAt: Instant,
+    val updatedAt: Instant,
+    val version: Int = 1,
+    val parentRecipeId: String? = null // For recipe upgrades
+)
 
-interface Ingredient {
-  id: string;
-  name: string;
-  quantity: number;
-  unit: string;
-  notes?: string;
-  photos: Photo[];
-}
+@Serializable
+data class Ingredient(
+    val id: String,
+    val name: String,
+    val quantity: Double,
+    val unit: String,
+    val notes: String? = null,
+    val photos: List<Photo> = emptyList()
+)
 
-interface CookingStep {
-  id: string;
-  stepNumber: number;
-  instruction: string;
-  duration?: number; // in minutes
-  temperature?: number;
-  photos: Photo[];
-  timerRequired: boolean;
-}
+@Serializable
+data class CookingStep(
+    val id: String,
+    val stepNumber: Int,
+    val instruction: String,
+    val duration: Int? = null, // in minutes
+    val temperature: Int? = null,
+    val photos: List<Photo> = emptyList(),
+    val timerRequired: Boolean = false
+)
 ```
 
 #### Photo Interface
-```typescript
-interface Photo {
-  id: string;
-  localPath: string;
-  cloudUrl?: string;
-  caption?: string;
-  stage: PhotoStage;
-  timestamp: Date;
-  syncStatus: SyncStatus;
+```kotlin
+@Serializable
+data class Photo(
+    val id: String,
+    val localPath: String,
+    val cloudUrl: String? = null,
+    val caption: String? = null,
+    val stage: PhotoStage,
+    val timestamp: Instant,
+    val syncStatus: SyncStatus = SyncStatus.LOCAL_ONLY
+)
+
+@Serializable
+enum class PhotoStage {
+    RAW_INGREDIENTS,
+    PROCESSED_INGREDIENTS,
+    COOKING_STEP,
+    FINAL_RESULT
 }
 
-enum PhotoStage {
-  RAW_INGREDIENTS = 'raw_ingredients',
-  PROCESSED_INGREDIENTS = 'processed_ingredients',
-  COOKING_STEP = 'cooking_step',
-  FINAL_RESULT = 'final_result'
-}
-
-enum SyncStatus {
-  LOCAL_ONLY = 'local_only',
-  SYNCING = 'syncing',
-  SYNCED = 'synced',
-  SYNC_FAILED = 'sync_failed'
+@Serializable
+enum class SyncStatus {
+    LOCAL_ONLY,
+    SYNCING,
+    SYNCED,
+    SYNC_FAILED
 }
 ```
 
 #### Timer Interface
-```typescript
-interface CookingTimer {
-  id: string;
-  recipeId: string;
-  stepId: string;
-  duration: number; // in seconds
-  remainingTime: number;
-  status: TimerStatus;
-  createdAt: Date;
-}
+```kotlin
+@Serializable
+data class CookingTimer(
+    val id: String,
+    val recipeId: String,
+    val stepId: String,
+    val duration: Int, // in seconds
+    val remainingTime: Int,
+    val status: TimerStatus,
+    val createdAt: Instant
+)
 
-enum TimerStatus {
-  READY = 'ready',
-  RUNNING = 'running',
-  PAUSED = 'paused',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled'
+@Serializable
+enum class TimerStatus {
+    READY,
+    RUNNING,
+    PAUSED,
+    COMPLETED,
+    CANCELLED
 }
 ```
 
@@ -165,29 +173,23 @@ enum TimerStatus {
 
 ### Database Schema
 
-The application uses SQLite for local storage with the following key tables:
+The application uses SQLDelight for type-safe SQL operations with SQLite:
 
-#### Recipes Table
-- Primary storage for recipe metadata and content
-- Supports versioning for recipe upgrades
-- Includes full-text search capabilities
+#### Core Tables
+- **Recipe**: Primary storage for recipe metadata and content with versioning support
+- **Ingredient**: Normalized ingredient data linked to recipes
+- **CookingStep**: Individual cooking instructions with timing and temperature data
+- **Photo**: Photo metadata with local paths and cloud sync status
+- **Collection**: User-created recipe collections for organization
+- **RecipeCollection**: Many-to-many relationship between recipes and collections
+- **CookingTimer**: Active and historical cooking timers
+- **SyncQueue**: Operations pending cloud synchronization for offline support
 
-#### Photos Table
-- Stores photo metadata and local file paths
-- Links to recipes and specific stages
-- Tracks cloud synchronization status
-
-#### Collections Table
-- Manages user-created recipe collections
-- Supports many-to-many relationships with recipes
-
-#### Timers Table
-- Stores active and historical cooking timers
-- Links to specific recipe steps
-
-#### Sync_Queue Table
-- Manages operations pending cloud synchronization
-- Ensures data consistency during offline periods
+#### SQLDelight Integration
+- Type-safe SQL queries generated at compile time
+- Automatic mapping between SQL results and Kotlin data classes
+- Support for complex queries with joins and aggregations
+- Migration support for schema evolution
 
 ### Data Flow Patterns
 
@@ -242,25 +244,40 @@ The application uses SQLite for local storage with the following key tables:
 
 ## Testing Strategy
 
-### Dual Testing Approach
+## Testing Strategy
 
-The application will employ both unit testing and property-based testing to ensure comprehensive coverage and correctness validation.
+### Multi-Layer Testing Approach
+
+The application employs three complementary testing strategies:
+
+1. **Unit Testing with Kotest**: Fast, focused tests for individual components
+2. **Property-Based Testing with Kotest**: Comprehensive validation of universal properties
+3. **Feature Testing with Cucumber Serenity**: Behavior-driven development for end-to-end scenarios
 
 #### Unit Testing
-Unit tests will focus on:
+Unit tests focus on:
 - **Specific Examples**: Concrete test cases that demonstrate correct behavior
 - **Edge Cases**: Boundary conditions, empty inputs, and error scenarios
 - **Integration Points**: Component interactions and data flow validation
 - **User Interface**: Component rendering and user interaction flows
 
 #### Property-Based Testing
-Property tests will verify universal properties using **fast-check** library for JavaScript/TypeScript:
-- **Configuration**: Minimum 100 iterations per property test
+Property tests will verify universal properties using **Kotest property testing** with custom Kotlin generators:
+- **Configuration**: Minimum 100 iterations per property test using Kotest's `checkAll` function
 - **Coverage**: Universal properties that hold across all valid inputs
-- **Randomization**: Comprehensive input space exploration
+- **Randomization**: Comprehensive input space exploration using Kotest's `Arb` generators
+- **Assertions**: Kotest matchers for expressive and readable test assertions
 - **Tag Format**: Each test tagged as **Feature: recipe-manager, Property {number}: {property_text}**
 
-The combination ensures both concrete correctness validation (unit tests) and comprehensive input coverage (property tests), providing confidence in system reliability across all usage scenarios.
+#### Feature Testing with Cucumber Serenity
+Feature tests validate complete user workflows using Gherkin scenarios:
+- **BDD Approach**: Business-readable scenarios written in Gherkin syntax
+- **End-to-End Validation**: Complete user journeys from UI to database
+- **Living Documentation**: Executable specifications that serve as documentation
+- **Reporting**: Rich HTML reports with screenshots and detailed execution logs
+- **Cross-Platform**: Tests can run against both Android and iOS implementations
+
+The combination ensures both concrete correctness validation (unit tests), comprehensive input coverage (property tests), and complete workflow validation (feature tests), providing confidence in system reliability across all usage scenarios.
 
 ## Correctness Properties
 

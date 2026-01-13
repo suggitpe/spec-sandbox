@@ -2,35 +2,36 @@
 
 ## Overview
 
-This implementation plan breaks down the Recipe Manager mobile application into discrete coding tasks that build incrementally toward a complete recipe management system with photo documentation, sharing capabilities, and cooking assistance features. The implementation follows a React Native architecture with TypeScript, focusing on offline-first functionality with cloud synchronization.
+This implementation plan breaks down the Recipe Manager mobile application into discrete coding tasks that build incrementally toward a complete recipe management system with photo documentation, sharing capabilities, and cooking assistance features. The implementation follows a Kotlin Multiplatform Mobile (KMM) architecture with Compose Multiplatform for UI, focusing on offline-first functionality with cloud synchronization.
 
 ## Tasks
 
 - [ ] 1. Set up project structure and core interfaces
-  - Initialize React Native project with TypeScript configuration
-  - Set up development environment with required dependencies (Redux Toolkit, SQLite, React Navigation)
-  - Define core TypeScript interfaces for Recipe, Photo, CookingTimer, and related types
-  - Configure project structure with proper folder organization
+  - Initialize Kotlin Multiplatform Mobile project with Gradle configuration
+  - Set up development environment with required dependencies (SQLDelight, Ktor, Compose Multiplatform, Kotest)
+  - Define core Kotlin data classes for Recipe, Photo, CookingTimer, and related types
+  - Configure project structure with proper source sets (commonMain, androidMain, iosMain)
   - _Requirements: 1.1, 2.1, 5.1_
 
-- [x] 1.1 Write property test for core data interfaces
+- [ ] 1.1 Write property test for core data interfaces
 
   - **Property 1: Recipe Creation Completeness**
   - **Validates: Requirements 1.1, 1.4**
 
-- [-] 2. Implement local data storage layer
-  - [x] 2.1 Set up SQLite database with Watermelon DB
+- [ ] 2. Implement local data storage layer
+  - [ ] 2.1 Set up SQLDelight database with SQLite
     - Create database schema for recipes, photos, collections, and timers
     - Implement database initialization and migration logic
+    - Set up platform-specific database drivers (Android/iOS)
     - _Requirements: 8.1, 8.2_
 
-  - [x] 2.2 Implement Recipe data access layer
-    - Create RecipeService with CRUD operations
+  - [ ] 2.2 Implement Recipe data access layer
+    - Create RecipeRepository with CRUD operations
     - Implement recipe validation logic
     - Add full-text search capabilities for recipes
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-  - [x] 2.3 Write property tests for recipe data operations
+  - [ ]* 2.3 Write property tests for recipe data operations
 
     - **Property 2: Recipe Update Preservation**
     - **Property 3: Recipe Deletion Consistency**
@@ -39,7 +40,7 @@ This implementation plan breaks down the Recipe Manager mobile application into 
 
 - [ ] 3. Implement photo management system
   - [ ] 3.1 Create photo capture and storage functionality
-    - Implement PhotoService for image capture using React Native Image Picker
+    - Implement PhotoRepository for image capture using platform-specific APIs
     - Add photo optimization and compression logic
     - Create local file system storage for photos
     - _Requirements: 2.1, 2.5_
@@ -60,9 +61,9 @@ This implementation plan breaks down the Recipe Manager mobile application into 
 
 - [ ] 5. Implement recipe sharing functionality
   - [ ] 5.1 Create recipe export and import system
-    - Implement ShareService for recipe data serialization
+    - Implement ShareService for recipe data serialization using Kotlinx Serialization
     - Create recipe import functionality with data validation
-    - Add support for multiple sharing channels
+    - Add support for multiple sharing channels using platform-specific APIs
     - _Requirements: 3.1, 3.2, 3.3_
 
   - [ ] 5.2 Implement recipe copying and independence
@@ -95,13 +96,13 @@ This implementation plan breaks down the Recipe Manager mobile application into 
 
 - [ ] 7. Implement cooking timers and notifications
   - [ ] 7.1 Create timer management system
-    - Implement TimerService for multiple concurrent timers
+    - Implement TimerService for multiple concurrent timers using Kotlinx Coroutines
     - Create timer state management (start, pause, resume, cancel)
     - Add timer persistence across app sessions
     - _Requirements: 5.1, 5.4, 5.5_
 
   - [ ] 7.2 Implement notification system
-    - Set up React Native Push Notifications
+    - Set up platform-specific push notifications (Android/iOS)
     - Create NotificationManager for timer alerts
     - Implement background notification handling
     - Add cooking reminder functionality
@@ -128,9 +129,9 @@ This implementation plan breaks down the Recipe Manager mobile application into 
 - [ ] 9. Checkpoint - Ensure all core features work together
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 10. Implement user interface components
+- [ ] 10. Implement user interface components with Compose Multiplatform
   - [ ] 10.1 Create recipe management screens
-    - Build recipe creation and editing forms
+    - Build recipe creation and editing forms using Compose
     - Implement recipe list and detail views
     - Add search interface with filtering
     - _Requirements: 1.1, 1.2, 1.5, 7.2_
@@ -154,15 +155,15 @@ This implementation plan breaks down the Recipe Manager mobile application into 
     - _Requirements: 3.4, 6.1, 6.5_
 
 - [ ] 11. Implement navigation and state management
-  - [ ] 11.1 Set up React Navigation with state persistence
+  - [ ] 11.1 Set up Compose Navigation with state persistence
     - Configure navigation structure for all screens
     - Implement navigation state preservation
     - Add deep linking support for shared recipes
     - _Requirements: 7.1, 7.5_
 
-  - [ ] 11.2 Implement Redux state management
-    - Set up Redux store with RTK Query for data caching
-    - Create state slices for recipes, photos, timers, and collections
+  - [ ] 11.2 Implement ViewModel state management
+    - Set up ViewModels for each screen with proper lifecycle handling
+    - Create state management for recipes, photos, timers, and collections
     - Implement state persistence across app sessions
     - _Requirements: 7.5, 8.1, 8.2_
 
@@ -173,13 +174,13 @@ This implementation plan breaks down the Recipe Manager mobile application into 
 
 - [ ] 12. Implement cloud synchronization
   - [ ] 12.1 Set up Firebase integration
-    - Configure Firebase Storage for photo sync
+    - Configure Firebase Storage for photo sync using platform-specific SDKs
     - Set up Firestore for recipe data synchronization
     - Implement authentication for cloud access
     - _Requirements: 8.3_
 
   - [ ] 12.2 Create synchronization manager
-    - Implement SyncManager for coordinating cloud operations
+    - Implement SyncManager for coordinating cloud operations using Ktor Client
     - Create offline queue for pending operations
     - Add conflict resolution for simultaneous edits
     - _Requirements: 8.3, 8.4_
@@ -218,8 +219,9 @@ This implementation plan breaks down the Recipe Manager mobile application into 
 
 - Tasks marked with `*` are optional and can be skipped for faster MVP development
 - Each task references specific requirements for traceability
-- Property tests validate universal correctness properties using fast-check library
-- Unit tests validate specific examples and edge cases
+- Property tests validate universal correctness properties using Kotest property testing with custom Kotlin generators
+- Unit tests validate specific examples and edge cases using Kotest assertions
 - Checkpoints ensure incremental validation and provide opportunities for user feedback
 - The implementation follows offline-first principles with cloud sync as enhancement
 - All photo operations include optimization for mobile storage constraints
+- Platform-specific implementations are isolated in androidMain and iosMain source sets
