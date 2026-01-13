@@ -1,0 +1,42 @@
+# --- Kiro Specifics ---
+# Do NOT ignore .kiro/steering/ as these are your project rules
+# Do NOT ignore product.md, tech.md, or tasks.md (your specs)
+
+# Ignore Kiro's local state and temporary agent history
+.kiro/history/
+.kiro/logs/
+.kiro/temp/
+.kiro/checkpoints/
+
+# Ignore Kiro configuration that might contain personal tokens
+mcp.json
+
+# --- General AI/Agentic Ignores ---
+.kiroignore
+.agentguard/
+
+# --- Standard Environment & Secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Common Language Overlays ---
+# Node / JS
+node_modules/
+dist/
+.npm
+.cache/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+
+# OS specific
+.DS_Store
+Thumbs.db
