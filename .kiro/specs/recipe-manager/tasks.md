@@ -31,7 +31,8 @@ This implementation plan breaks down the Recipe Manager mobile application into 
     - Add full-text search capabilities for recipes
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-  - [ ]* 2.3 Write property tests for recipe data operations
+  - [x] 2.3 Write property tests for recipe data operations
+
 
     - **Property 2: Recipe Update Preservation**
     - **Property 3: Recipe Deletion Consistency**
