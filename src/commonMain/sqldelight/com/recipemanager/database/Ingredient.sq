@@ -1,0 +1,35 @@
+-- Ingredient table
+CREATE TABLE Ingredient (
+    id TEXT PRIMARY KEY NOT NULL,
+    recipeId TEXT NOT NULL,
+    name TEXT NOT NULL,
+    quantity REAL NOT NULL,
+    unit TEXT NOT NULL,
+    notes TEXT,
+    FOREIGN KEY (recipeId) REFERENCES Recipe(id) ON DELETE CASCADE
+);
+
+-- ============================================
+-- Ingredient Queries
+-- ============================================
+
+selectIngredientsByRecipeId:
+SELECT * FROM Ingredient WHERE recipeId = ? ORDER BY id;
+
+insertIngredient:
+INSERT INTO Ingredient (id, recipeId, name, quantity, unit, notes)
+VALUES (?, ?, ?, ?, ?, ?);
+
+updateIngredient:
+UPDATE Ingredient SET 
+    name = ?, 
+    quantity = ?, 
+    unit = ?, 
+    notes = ?
+WHERE id = ?;
+
+deleteIngredient:
+DELETE FROM Ingredient WHERE id = ?;
+
+deleteIngredientsByRecipeId:
+DELETE FROM Ingredient WHERE recipeId = ?;

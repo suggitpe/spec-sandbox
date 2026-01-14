@@ -1,0 +1,32 @@
+-- Collection table
+CREATE TABLE Collection (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    createdAt INTEGER NOT NULL, -- Unix timestamp
+    updatedAt INTEGER NOT NULL -- Unix timestamp
+);
+
+-- ============================================
+-- Collection Queries
+-- ============================================
+
+selectAllCollections:
+SELECT * FROM Collection ORDER BY updatedAt DESC;
+
+selectCollectionById:
+SELECT * FROM Collection WHERE id = ?;
+
+insertCollection:
+INSERT INTO Collection (id, name, description, createdAt, updatedAt)
+VALUES (?, ?, ?, ?, ?);
+
+updateCollection:
+UPDATE Collection SET 
+    name = ?, 
+    description = ?, 
+    updatedAt = ?
+WHERE id = ?;
+
+deleteCollection:
+DELETE FROM Collection WHERE id = ?;

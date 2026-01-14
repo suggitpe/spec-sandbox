@@ -1,0 +1,44 @@
+-- CookingTimer table
+CREATE TABLE CookingTimer (
+    id TEXT PRIMARY KEY NOT NULL,
+    recipeId TEXT NOT NULL,
+    stepId TEXT NOT NULL,
+    duration INTEGER NOT NULL, -- in seconds
+    remainingTime INTEGER NOT NULL, -- in seconds
+    status TEXT NOT NULL, -- TimerStatus enum as string
+    createdAt INTEGER NOT NULL, -- Unix timestamp
+    FOREIGN KEY (recipeId) REFERENCES Recipe(id) ON DELETE CASCADE,
+    FOREIGN KEY (stepId) REFERENCES CookingStep(id) ON DELETE CASCADE
+);
+
+-- ============================================
+-- CookingTimer Queries
+-- ============================================
+
+selectAllTimers:
+SELECT * FROM CookingTimer ORDER BY createdAt DESC;
+
+selectTimerById:
+SELECT * FROM CookingTimer WHERE id = ?;
+
+selectTimersByRecipeId:
+SELECT * FROM CookingTimer WHERE recipeId = ? ORDER BY createdAt;
+
+selectActiveTimers:
+SELECT * FROM CookingTimer WHERE status IN ('RUNNING', 'PAUSED') ORDER BY createdAt;
+
+insertTimer:
+INSERT INTO CookingTimer (id, recipeId, stepId, duration, remainingTime, status, createdAt)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+updateTimer:
+UPDATE CookingTimer SET 
+    remainingTime = ?, 
+    status = ?
+WHERE id = ?;
+
+deleteTimer:
+DELETE FROM CookingTimer WHERE id = ?;
+
+deleteTimersByRecipeId:
+DELETE FROM CookingTimer WHERE recipeId = ?;

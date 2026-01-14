@@ -1,0 +1,42 @@
+-- Photo table
+CREATE TABLE Photo (
+    id TEXT PRIMARY KEY NOT NULL,
+    localPath TEXT NOT NULL,
+    cloudUrl TEXT,
+    caption TEXT,
+    stage TEXT NOT NULL, -- PhotoStage enum as string
+    timestamp INTEGER NOT NULL, -- Unix timestamp
+    syncStatus TEXT NOT NULL DEFAULT 'LOCAL_ONLY' -- SyncStatus enum as string
+);
+
+-- ============================================
+-- Photo Queries
+-- ============================================
+
+selectPhotoById:
+SELECT * FROM Photo WHERE id = ?;
+
+selectAllPhotos:
+SELECT * FROM Photo ORDER BY timestamp DESC;
+
+selectPhotosByStage:
+SELECT * FROM Photo WHERE stage = ? ORDER BY timestamp DESC;
+
+insertPhoto:
+INSERT INTO Photo (id, localPath, cloudUrl, caption, stage, timestamp, syncStatus)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+updatePhoto:
+UPDATE Photo SET 
+    localPath = ?, 
+    cloudUrl = ?, 
+    caption = ?, 
+    stage = ?, 
+    syncStatus = ?
+WHERE id = ?;
+
+deletePhoto:
+DELETE FROM Photo WHERE id = ?;
+
+updatePhotoSyncStatus:
+UPDATE Photo SET syncStatus = ? WHERE id = ?;

@@ -1,0 +1,36 @@
+-- Photo-CookingStep association table
+CREATE TABLE PhotoCookingStep (
+    photoId TEXT NOT NULL,
+    stepId TEXT NOT NULL,
+    PRIMARY KEY (photoId, stepId),
+    FOREIGN KEY (photoId) REFERENCES Photo(id) ON DELETE CASCADE,
+    FOREIGN KEY (stepId) REFERENCES CookingStep(id) ON DELETE CASCADE
+);
+
+-- ============================================
+-- Photo-CookingStep Association Queries
+-- ============================================
+
+selectPhotosByStepId:
+SELECT p.* FROM Photo p
+INNER JOIN PhotoCookingStep pcs ON p.id = pcs.photoId
+WHERE pcs.stepId = ?
+ORDER BY p.timestamp;
+
+selectStepsByPhotoId:
+SELECT cs.* FROM CookingStep cs
+INNER JOIN PhotoCookingStep pcs ON cs.id = pcs.stepId
+WHERE pcs.photoId = ?;
+
+insertPhotoCookingStep:
+INSERT INTO PhotoCookingStep (photoId, stepId)
+VALUES (?, ?);
+
+deletePhotoCookingStep:
+DELETE FROM PhotoCookingStep WHERE photoId = ? AND stepId = ?;
+
+deletePhotoCookingStepsByPhotoId:
+DELETE FROM PhotoCookingStep WHERE photoId = ?;
+
+deletePhotoCookingStepsByStepId:
+DELETE FROM PhotoCookingStep WHERE stepId = ?;

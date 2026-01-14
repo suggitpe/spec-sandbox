@@ -1,0 +1,36 @@
+-- Photo-Ingredient association table
+CREATE TABLE PhotoIngredient (
+    photoId TEXT NOT NULL,
+    ingredientId TEXT NOT NULL,
+    PRIMARY KEY (photoId, ingredientId),
+    FOREIGN KEY (photoId) REFERENCES Photo(id) ON DELETE CASCADE,
+    FOREIGN KEY (ingredientId) REFERENCES Ingredient(id) ON DELETE CASCADE
+);
+
+-- ============================================
+-- Photo-Ingredient Association Queries
+-- ============================================
+
+selectPhotosByIngredientId:
+SELECT p.* FROM Photo p
+INNER JOIN PhotoIngredient pi ON p.id = pi.photoId
+WHERE pi.ingredientId = ?
+ORDER BY p.timestamp;
+
+selectIngredientsByPhotoId:
+SELECT i.* FROM Ingredient i
+INNER JOIN PhotoIngredient pi ON i.id = pi.ingredientId
+WHERE pi.photoId = ?;
+
+insertPhotoIngredient:
+INSERT INTO PhotoIngredient (photoId, ingredientId)
+VALUES (?, ?);
+
+deletePhotoIngredient:
+DELETE FROM PhotoIngredient WHERE photoId = ? AND ingredientId = ?;
+
+deletePhotoIngredientsByPhotoId:
+DELETE FROM PhotoIngredient WHERE photoId = ?;
+
+deletePhotoIngredientsByIngredientId:
+DELETE FROM PhotoIngredient WHERE ingredientId = ?;

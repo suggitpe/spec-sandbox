@@ -1,0 +1,38 @@
+-- RecipeCollection many-to-many relationship table
+CREATE TABLE RecipeCollection (
+    recipeId TEXT NOT NULL,
+    collectionId TEXT NOT NULL,
+    addedAt INTEGER NOT NULL, -- Unix timestamp
+    PRIMARY KEY (recipeId, collectionId),
+    FOREIGN KEY (recipeId) REFERENCES Recipe(id) ON DELETE CASCADE,
+    FOREIGN KEY (collectionId) REFERENCES Collection(id) ON DELETE CASCADE
+);
+
+-- ============================================
+-- RecipeCollection Association Queries
+-- ============================================
+
+selectRecipesByCollectionId:
+SELECT r.* FROM Recipe r
+INNER JOIN RecipeCollection rc ON r.id = rc.recipeId
+WHERE rc.collectionId = ?
+ORDER BY rc.addedAt DESC;
+
+selectCollectionsByRecipeId:
+SELECT c.* FROM Collection c
+INNER JOIN RecipeCollection rc ON c.id = rc.collectionId
+WHERE rc.recipeId = ?
+ORDER BY c.name;
+
+insertRecipeCollection:
+INSERT INTO RecipeCollection (recipeId, collectionId, addedAt)
+VALUES (?, ?, ?);
+
+deleteRecipeCollection:
+DELETE FROM RecipeCollection WHERE recipeId = ? AND collectionId = ?;
+
+deleteRecipeCollectionsByRecipeId:
+DELETE FROM RecipeCollection WHERE recipeId = ?;
+
+deleteRecipeCollectionsByCollectionId:
+DELETE FROM RecipeCollection WHERE collectionId = ?;
