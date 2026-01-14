@@ -39,14 +39,14 @@ This implementation plan breaks down the Recipe Manager mobile application into 
     - **Property 4: Search Result Relevance**
     - **Validates: Requirements 1.2, 1.3, 1.5**
 
-- [ ] 3. Implement photo management system
-  - [ ] 3.1 Create photo capture and storage functionality
+- [x] 3. Implement photo management system
+  - [x] 3.1 Create photo capture and storage functionality
     - Implement PhotoRepository for image capture using platform-specific APIs
     - Add photo optimization and compression logic
     - Create local file system storage for photos
     - _Requirements: 2.1, 2.5_
 
-  - [ ] 3.2 Implement photo-stage association system
+  - [x] 3.2 Implement photo-stage association system
     - Create photo tagging system for recipe stages
     - Implement photo retrieval by stage functionality
     - Add photo deletion with cleanup logic
