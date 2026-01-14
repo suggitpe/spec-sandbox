@@ -52,13 +52,13 @@ This implementation plan breaks down the Recipe Manager mobile application into 
     - Add photo deletion with cleanup logic
     - _Requirements: 2.1, 2.2, 2.3, 2.6, 2.7_
 
-  - [ ] 3.3 Write property tests for photo management
+  - [x] 3.3 Write property tests for photo management
 
     - **Property 5: Photo-Stage Association Integrity**
     - **Property 6: Photo Processing Consistency**
     - **Validates: Requirements 2.1, 2.2, 2.5, 2.6**
 
-- [ ] 4. Checkpoint - Ensure core data operations work
+- [x] 4. Checkpoint - Ensure core data operations work
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 5. Implement recipe sharing functionality
