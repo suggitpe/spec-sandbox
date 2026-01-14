@@ -61,20 +61,21 @@ This implementation plan breaks down the Recipe Manager mobile application into 
 - [x] 4. Checkpoint - Ensure core data operations work
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 5. Implement recipe sharing functionality
-  - [ ] 5.1 Create recipe export and import system
+- [x] 5. Implement recipe sharing functionality
+  - [x] 5.1 Create recipe export and import system
     - Implement ShareService for recipe data serialization using Kotlinx Serialization
     - Create recipe import functionality with data validation
     - Add support for multiple sharing channels using platform-specific APIs
     - _Requirements: 3.1, 3.2, 3.3_
 
-  - [ ] 5.2 Implement recipe copying and independence
+  - [x] 5.2 Implement recipe copying and independence
     - Create RecipeCopyManager for shared recipe handling
     - Ensure shared recipes are independent copies
     - Implement shared recipe metadata tracking
     - _Requirements: 3.5_
 
-  - [ ]* 5.3 Write property tests for recipe sharing
+  - [x] 5.3 Write property tests for recipe sharing
+
     - **Property 7: Recipe Sharing Completeness**
     - **Property 8: Shared Recipe Independence**
     - **Validates: Requirements 3.1, 3.3, 3.5**

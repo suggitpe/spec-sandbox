@@ -11,13 +11,19 @@ import com.recipemanager.domain.repository.PhotoRepository
 import com.recipemanager.domain.service.PhotoCaptureService
 import com.recipemanager.domain.service.PhotoCaptureProvider
 import com.recipemanager.domain.service.PhotoAssociationService
+import com.recipemanager.domain.service.ShareService
+import com.recipemanager.domain.service.PlatformShareService
+import com.recipemanager.domain.service.RecipeCopyManager
 import com.recipemanager.domain.usecase.RecipeUseCases
+import com.recipemanager.domain.usecase.ShareRecipeUseCase
+import com.recipemanager.domain.usecase.ImportRecipeUseCase
 import com.recipemanager.domain.validation.RecipeValidator
 
 class AppModule(
     private val databaseDriverFactory: DatabaseDriverFactory,
     private val photoStorage: PhotoStorage,
-    private val photoCaptureProvider: PhotoCaptureProvider
+    private val photoCaptureProvider: PhotoCaptureProvider,
+    private val platformShareService: PlatformShareService
 ) {
     
     private val databaseManager: DatabaseManager by lazy {
@@ -50,5 +56,21 @@ class AppModule(
     
     val photoAssociationService: PhotoAssociationService by lazy {
         PhotoAssociationService(photoRepository as PhotoRepositoryImpl)
+    }
+    
+    val shareService: ShareService by lazy {
+        ShareService(recipeValidator)
+    }
+    
+    val recipeCopyManager: RecipeCopyManager by lazy {
+        RecipeCopyManager()
+    }
+    
+    val shareRecipeUseCase: ShareRecipeUseCase by lazy {
+        ShareRecipeUseCase(shareService, platformShareService)
+    }
+    
+    val importRecipeUseCase: ImportRecipeUseCase by lazy {
+        ImportRecipeUseCase(shareService, recipeRepository, recipeCopyManager)
     }
 }
