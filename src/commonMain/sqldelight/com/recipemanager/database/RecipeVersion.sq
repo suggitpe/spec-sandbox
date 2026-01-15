@@ -1,0 +1,49 @@
+-- RecipeVersion table for tracking version history
+CREATE TABLE RecipeVersion (
+    id TEXT PRIMARY KEY NOT NULL,
+    recipeId TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    parentRecipeId TEXT,
+    upgradeNotes TEXT,
+    createdAt INTEGER NOT NULL, -- Unix timestamp
+    createdBy TEXT,
+    FOREIGN KEY (recipeId) REFERENCES Recipe(id) ON DELETE CASCADE
+);
+
+-- Index for efficient version history queries
+CREATE INDEX idx_recipe_version_recipeId ON RecipeVersion(recipeId);
+CREATE INDEX idx_recipe_version_parentRecipeId ON RecipeVersion(parentRecipeId);
+
+-- ============================================
+-- RecipeVersion Queries
+-- ============================================
+
+selectVersionsByRecipeId:
+SELECT * FROM RecipeVersion 
+WHERE recipeId = ? 
+ORDER BY version DESC;
+
+selectVersionById:
+SELECT * FROM RecipeVersion WHERE id = ?;
+
+selectVersionByRecipeIdAndVersion:
+SELECT * FROM RecipeVersion 
+WHERE recipeId = ? AND version = ?;
+
+selectAllVersionsForRecipeFamily:
+SELECT rv.* FROM RecipeVersion rv
+WHERE rv.recipeId IN (
+    SELECT id FROM Recipe 
+    WHERE id = ? OR parentRecipeId = ?
+)
+ORDER BY rv.createdAt DESC;
+
+insertVersion:
+INSERT INTO RecipeVersion (id, recipeId, version, parentRecipeId, upgradeNotes, createdAt, createdBy)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+deleteVersionsByRecipeId:
+DELETE FROM RecipeVersion WHERE recipeId = ?;
+
+getLatestVersionNumber:
+SELECT MAX(version) FROM RecipeVersion WHERE recipeId = ?;

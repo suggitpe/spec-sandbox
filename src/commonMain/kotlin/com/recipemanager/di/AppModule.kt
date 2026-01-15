@@ -4,16 +4,19 @@ import com.recipemanager.data.database.DatabaseDriverFactory
 import com.recipemanager.data.database.DatabaseManager
 import com.recipemanager.data.repository.RecipeRepositoryImpl
 import com.recipemanager.data.repository.PhotoRepositoryImpl
+import com.recipemanager.data.repository.RecipeVersionRepositoryImpl
 import com.recipemanager.data.storage.PhotoStorage
 import com.recipemanager.database.RecipeDatabase
 import com.recipemanager.domain.repository.RecipeRepository
 import com.recipemanager.domain.repository.PhotoRepository
+import com.recipemanager.domain.repository.RecipeVersionRepository
 import com.recipemanager.domain.service.PhotoCaptureService
 import com.recipemanager.domain.service.PhotoCaptureProvider
 import com.recipemanager.domain.service.PhotoAssociationService
 import com.recipemanager.domain.service.ShareService
 import com.recipemanager.domain.service.PlatformShareService
 import com.recipemanager.domain.service.RecipeCopyManager
+import com.recipemanager.domain.service.RecipeVersionManager
 import com.recipemanager.domain.usecase.RecipeUseCases
 import com.recipemanager.domain.usecase.ShareRecipeUseCase
 import com.recipemanager.domain.usecase.ImportRecipeUseCase
@@ -44,6 +47,14 @@ class AppModule(
     
     val photoRepository: PhotoRepository by lazy {
         PhotoRepositoryImpl(database, photoStorage)
+    }
+    
+    val recipeVersionRepository: RecipeVersionRepository by lazy {
+        RecipeVersionRepositoryImpl(database)
+    }
+    
+    val recipeVersionManager: RecipeVersionManager by lazy {
+        RecipeVersionManager(recipeRepository, recipeVersionRepository)
     }
     
     val recipeUseCases: RecipeUseCases by lazy {
