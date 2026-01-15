@@ -112,7 +112,7 @@ This implementation plan breaks down the Recipe Manager mobile application into 
     - Add cooking reminder functionality
     - _Requirements: 5.2, 5.3_
 
-  - [x] 7.3 Write property tests for timer functionality
+  - [x] 7.3 Write tproperty tests for timer functionaliy
 
     - **Property 11: Timer Creation Completeness**
     - **Property 12: Timer Notification Reliability**
@@ -120,7 +120,7 @@ This implementation plan breaks down the Recipe Manager mobile application into 
     - **Validates: Requirements 5.1, 5.2, 5.3, 5.5**
 
 - [ ] 8. Implement recipe collections
-  - [ ] 8.1 Create collection management system
+  - [x] 8.1 Create collection management system
     - Implement collection CRUD operations
     - Create many-to-many relationship between recipes and collections
     - Add collection display and organization features
