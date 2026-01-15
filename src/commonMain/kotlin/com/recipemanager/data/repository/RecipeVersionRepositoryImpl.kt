@@ -101,22 +101,53 @@ class RecipeVersionRepositoryImpl(
     
     override suspend fun getRecipeFamilyVersions(recipeId: String): Result<List<RecipeVersion>> = withContext(Dispatchers.Default) {
         try {
-            val versions = database.recipeVersionQueries.selectAllVersionsForRecipeFamily(
-                recipeId,
-                recipeId
-            ).executeAsList()
-                .map { row ->
-                    RecipeVersion(
-                        id = row.id,
-                        recipeId = row.recipeId,
-                        version = row.version.toInt(),
-                        parentRecipeId = row.parentRecipeId,
-                        upgradeNotes = row.upgradeNotes,
-                        createdAt = Instant.fromEpochSeconds(row.createdAt),
-                        createdBy = row.createdBy
-                    )
-                }
-            Result.success(versions)
+            // Get all recipes to build the family tree
+            val allRecipes = database.recipeQueries.selectAllRecipes().executeAsList()
+            
+            // Find all recipe IDs in the family (ancestors and descendants)
+            val familyIds = mutableSetOf<String>()
+            val toProcess = mutableSetOf(recipeId)
+            
+            // Traverse up to find all ancestors
+            var currentId: String? = recipeId
+            while (currentId != null) {
+                familyIds.add(currentId)
+                val recipe = allRecipes.find { it.id == currentId }
+                currentId = recipe?.parentRecipeId
+            }
+            
+            // Traverse down to find all descendants
+            while (toProcess.isNotEmpty()) {
+                val current = toProcess.first()
+                toProcess.remove(current)
+                familyIds.add(current)
+                
+                // Find all children
+                val children = allRecipes.filter { it.parentRecipeId == current }
+                toProcess.addAll(children.map { it.id })
+            }
+            
+            // Get all versions for all family members
+            val allVersions = mutableListOf<RecipeVersion>()
+            for (id in familyIds) {
+                val versions = database.recipeVersionQueries.selectVersionsByRecipeId(id)
+                    .executeAsList()
+                    .map { row ->
+                        RecipeVersion(
+                            id = row.id,
+                            recipeId = row.recipeId,
+                            version = row.version.toInt(),
+                            parentRecipeId = row.parentRecipeId,
+                            upgradeNotes = row.upgradeNotes,
+                            createdAt = Instant.fromEpochSeconds(row.createdAt),
+                            createdBy = row.createdBy
+                        )
+                    }
+                allVersions.addAll(versions)
+            }
+            
+            // Sort by version ascending
+            Result.success(allVersions.sortedBy { it.version })
         } catch (e: Exception) {
             Result.failure(e)
         }

@@ -36,7 +36,7 @@ WHERE rv.recipeId IN (
     SELECT id FROM Recipe 
     WHERE id = ? OR parentRecipeId = ?
 )
-ORDER BY rv.createdAt DESC;
+ORDER BY rv.version ASC;
 
 insertVersion:
 INSERT INTO RecipeVersion (id, recipeId, version, parentRecipeId, upgradeNotes, createdAt, createdBy)

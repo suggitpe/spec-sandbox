@@ -1,0 +1,32 @@
+-- RecipeSnapshot table for storing complete recipe data at each version
+-- This enables complete data rollback when reverting to previous versions
+CREATE TABLE RecipeSnapshot (
+    id TEXT PRIMARY KEY NOT NULL,
+    versionId TEXT NOT NULL UNIQUE,
+    recipeData TEXT NOT NULL, -- JSON serialized Recipe object
+    createdAt INTEGER NOT NULL, -- Unix timestamp
+    FOREIGN KEY (versionId) REFERENCES RecipeVersion(id) ON DELETE CASCADE
+);
+
+-- Index for efficient snapshot retrieval by version
+CREATE INDEX idx_recipe_snapshot_versionId ON RecipeSnapshot(versionId);
+
+-- ============================================
+-- RecipeSnapshot Queries
+-- ============================================
+
+selectSnapshotByVersionId:
+SELECT * FROM RecipeSnapshot WHERE versionId = ?;
+
+insertSnapshot:
+INSERT INTO RecipeSnapshot (id, versionId, recipeData, createdAt)
+VALUES (?, ?, ?, ?);
+
+deleteSnapshotByVersionId:
+DELETE FROM RecipeSnapshot WHERE versionId = ?;
+
+deleteSnapshotsByRecipeVersionIds:
+DELETE FROM RecipeSnapshot 
+WHERE versionId IN (
+    SELECT id FROM RecipeVersion WHERE recipeId = ?
+);
