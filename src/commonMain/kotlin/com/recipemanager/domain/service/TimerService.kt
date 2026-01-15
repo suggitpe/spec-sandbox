@@ -13,9 +13,11 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * Service for managing multiple concurrent cooking timers.
  * Handles timer lifecycle (start, pause, resume, cancel) and persistence.
+ * Integrates with NotificationService to send alerts when timers complete.
  */
 class TimerService(
     private val timerRepository: TimerRepository,
+    private val notificationService: NotificationService? = null,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 ) {
     
@@ -222,6 +224,10 @@ class TimerService(
             if (currentTimer.remainingTime == 0) {
                 val completedTimer = currentTimer.copy(status = TimerStatus.COMPLETED)
                 timerRepository.updateTimer(completedTimer)
+                
+                // Send notification
+                notificationService?.showTimerCompletedNotification(completedTimer)
+                
                 _activeTimers.value = _activeTimers.value - timer.id
                 activeTimerJobs.remove(timer.id)
             }

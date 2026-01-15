@@ -6,12 +6,14 @@ import com.recipemanager.data.repository.RecipeRepositoryImpl
 import com.recipemanager.data.repository.PhotoRepositoryImpl
 import com.recipemanager.data.repository.RecipeVersionRepositoryImpl
 import com.recipemanager.data.repository.RecipeSnapshotRepositoryImpl
+import com.recipemanager.data.repository.TimerRepositoryImpl
 import com.recipemanager.data.storage.PhotoStorage
 import com.recipemanager.database.RecipeDatabase
 import com.recipemanager.domain.repository.RecipeRepository
 import com.recipemanager.domain.repository.PhotoRepository
 import com.recipemanager.domain.repository.RecipeVersionRepository
 import com.recipemanager.domain.repository.RecipeSnapshotRepository
+import com.recipemanager.domain.repository.TimerRepository
 import com.recipemanager.domain.service.PhotoCaptureService
 import com.recipemanager.domain.service.PhotoCaptureProvider
 import com.recipemanager.domain.service.PhotoAssociationService
@@ -19,6 +21,9 @@ import com.recipemanager.domain.service.ShareService
 import com.recipemanager.domain.service.PlatformShareService
 import com.recipemanager.domain.service.RecipeCopyManager
 import com.recipemanager.domain.service.RecipeVersionManager
+import com.recipemanager.domain.service.NotificationService
+import com.recipemanager.domain.service.NotificationManager
+import com.recipemanager.domain.service.TimerService
 import com.recipemanager.domain.usecase.RecipeUseCases
 import com.recipemanager.domain.usecase.ShareRecipeUseCase
 import com.recipemanager.domain.usecase.ImportRecipeUseCase
@@ -28,7 +33,8 @@ class AppModule(
     private val databaseDriverFactory: DatabaseDriverFactory,
     private val photoStorage: PhotoStorage,
     private val photoCaptureProvider: PhotoCaptureProvider,
-    private val platformShareService: PlatformShareService
+    private val platformShareService: PlatformShareService,
+    private val notificationService: NotificationService
 ) {
     
     private val databaseManager: DatabaseManager by lazy {
@@ -57,6 +63,18 @@ class AppModule(
     
     val recipeSnapshotRepository: RecipeSnapshotRepository by lazy {
         RecipeSnapshotRepositoryImpl(database)
+    }
+    
+    val timerRepository: TimerRepository by lazy {
+        TimerRepositoryImpl(database)
+    }
+    
+    val notificationManager: NotificationManager by lazy {
+        NotificationManager(notificationService)
+    }
+    
+    val timerService: TimerService by lazy {
+        TimerService(timerRepository, notificationService)
     }
     
     val recipeVersionManager: RecipeVersionManager by lazy {
