@@ -112,7 +112,8 @@ This implementation plan breaks down the Recipe Manager mobile application into 
     - Add cooking reminder functionality
     - _Requirements: 5.2, 5.3_
 
-  - [ ]* 7.3 Write property tests for timer functionality
+  - [x] 7.3 Write property tests for timer functionality
+
     - **Property 11: Timer Creation Completeness**
     - **Property 12: Timer Notification Reliability**
     - **Property 13: Multi-Timer State Management**

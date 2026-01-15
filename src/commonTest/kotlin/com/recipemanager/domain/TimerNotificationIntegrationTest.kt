@@ -43,8 +43,8 @@ class TimerNotificationIntegrationTest : FunSpec({
             id = "timer-1",
             recipeId = "recipe-1",
             stepId = "step-1",
-            duration = 2,
-            remainingTime = 2,
+            duration = 1,
+            remainingTime = 1,
             status = TimerStatus.READY,
             createdAt = Clock.System.now()
         )
@@ -54,7 +54,7 @@ class TimerNotificationIntegrationTest : FunSpec({
         startResult.isSuccess shouldBe true
         
         // Wait for timer to complete
-        delay(3.seconds)
+        delay(1.5.seconds)
         
         // Verify notification was sent
         mockNotificationService.timerNotifications.size shouldBe 1
@@ -67,8 +67,8 @@ class TimerNotificationIntegrationTest : FunSpec({
             id = "timer-2",
             recipeId = "recipe-1",
             stepId = "step-1",
-            duration = 2,
-            remainingTime = 2,
+            duration = 1,
+            remainingTime = 1,
             status = TimerStatus.READY,
             createdAt = Clock.System.now()
         )
@@ -77,8 +77,8 @@ class TimerNotificationIntegrationTest : FunSpec({
             id = "timer-3",
             recipeId = "recipe-1",
             stepId = "step-2",
-            duration = 3,
-            remainingTime = 3,
+            duration = 1,
+            remainingTime = 1,
             status = TimerStatus.READY,
             createdAt = Clock.System.now()
         )
@@ -88,7 +88,7 @@ class TimerNotificationIntegrationTest : FunSpec({
         timerService.startTimer(timer2)
         
         // Wait for both timers to complete
-        delay(4.seconds)
+        delay(1.5.seconds)
         
         // Verify both notifications were sent
         mockNotificationService.timerNotifications.size shouldBe 2
@@ -102,8 +102,8 @@ class TimerNotificationIntegrationTest : FunSpec({
             id = "timer-4",
             recipeId = "recipe-1",
             stepId = "step-1",
-            duration = 5,
-            remainingTime = 5,
+            duration = 2,
+            remainingTime = 2,
             status = TimerStatus.READY,
             createdAt = Clock.System.now()
         )
@@ -112,11 +112,11 @@ class TimerNotificationIntegrationTest : FunSpec({
         timerService.startTimer(timer)
         
         // Cancel the timer before it completes
-        delay(1.seconds)
+        delay(0.5.seconds)
         timerService.cancelTimer("timer-4")
         
         // Wait past the original completion time
-        delay(5.seconds)
+        delay(2.seconds)
         
         // Verify no notification was sent
         mockNotificationService.timerNotifications.size shouldBe 0
@@ -127,8 +127,8 @@ class TimerNotificationIntegrationTest : FunSpec({
             id = "timer-5",
             recipeId = "recipe-1",
             stepId = "step-1",
-            duration = 3,
-            remainingTime = 3,
+            duration = 2,
+            remainingTime = 2,
             status = TimerStatus.READY,
             createdAt = Clock.System.now()
         )
@@ -136,18 +136,18 @@ class TimerNotificationIntegrationTest : FunSpec({
         // Start the timer
         timerService.startTimer(timer)
         
-        // Pause after 1 second
-        delay(1.seconds)
+        // Pause after 0.5 second
+        delay(0.5.seconds)
         timerService.pauseTimer("timer-5")
         
         // Wait a bit while paused
-        delay(1.seconds)
+        delay(0.5.seconds)
         
         // Resume the timer
         timerService.resumeTimer("timer-5")
         
-        // Wait for timer to complete (should take ~2 more seconds)
-        delay(3.seconds)
+        // Wait for timer to complete (should take ~1.5 more seconds)
+        delay(2.5.seconds)
         
         // Verify notification was sent
         mockNotificationService.timerNotifications.size shouldBe 1
@@ -162,8 +162,8 @@ class TimerNotificationIntegrationTest : FunSpec({
             id = "timer-6",
             recipeId = "recipe-1",
             stepId = "step-1",
-            duration = 2,
-            remainingTime = 2,
+            duration = 1,
+            remainingTime = 1,
             status = TimerStatus.READY,
             createdAt = Clock.System.now()
         )
@@ -173,7 +173,7 @@ class TimerNotificationIntegrationTest : FunSpec({
         startResult.isSuccess shouldBe true
         
         // Wait for timer to complete
-        delay(3.seconds)
+        delay(1.5.seconds)
         
         // Timer should complete successfully even without notifications
         val retrieveResult = timerRepository.getTimer("timer-6")

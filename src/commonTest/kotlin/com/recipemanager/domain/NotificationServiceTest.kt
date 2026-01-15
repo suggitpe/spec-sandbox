@@ -207,7 +207,7 @@ class NotificationServiceTest : FunSpec({
     }
     
     test("should cancel scheduled cooking reminder") {
-        val scheduledTime = Clock.System.now() + 500.milliseconds
+        val scheduledTime = Clock.System.now() + 300.milliseconds
         
         notificationManager.scheduleCookingReminder(
             reminderId = "reminder-4",
@@ -218,20 +218,20 @@ class NotificationServiceTest : FunSpec({
         )
         
         // Cancel before it triggers
-        delay(100.milliseconds)
+        delay(50.milliseconds)
         val cancelResult = notificationManager.cancelCookingReminder("reminder-4")
         
         cancelResult.isSuccess shouldBe true
         
         // Wait past the scheduled time
-        delay(500.milliseconds)
+        delay(300.milliseconds)
         
         // Reminder should not have triggered
         mockNotificationService.cookingReminders.size shouldBe 0
     }
     
     test("should cancel all cooking reminders") {
-        val scheduledTime = Clock.System.now() + 500.milliseconds
+        val scheduledTime = Clock.System.now() + 300.milliseconds
         
         notificationManager.scheduleCookingReminder(
             reminderId = "reminder-5",
@@ -249,13 +249,13 @@ class NotificationServiceTest : FunSpec({
             recipeId = null
         )
         
-        delay(100.milliseconds)
+        delay(50.milliseconds)
         val cancelResult = notificationManager.cancelAllCookingReminders()
         
         cancelResult.isSuccess shouldBe true
         
         // Wait past the scheduled time
-        delay(500.milliseconds)
+        delay(300.milliseconds)
         
         // No reminders should have triggered
         mockNotificationService.cookingReminders.size shouldBe 0
