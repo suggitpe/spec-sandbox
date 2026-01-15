@@ -6,6 +6,9 @@ plugins {
 
 kotlin {
     jvm {
+        compilations.all {
+            kotlinOptions.jvmTarget = "11"
+        }
         testRuns["test"].executionTask.configure {
             useJUnitPlatform()
         }
@@ -59,17 +62,14 @@ sqldelight {
 tasks.register("testAll") {
     group = "verification"
     description = "Clean build and run all tests"
-    dependsOn("clean", "jvmTest")
-    
-    // Ensure clean runs before jvmTest
-    tasks.findByName("jvmTest")?.mustRunAfter("clean")
+    dependsOn(tasks.named("clean"), tasks.named("jvmTest"))
 }
 
 // Create a default test task that runs testAll
 tasks.register("test") {
     group = "verification"
     description = "Run all tests (clean build)"
-    dependsOn("testAll")
+    dependsOn(tasks.named("testAll"))
 }
 
 // Set the default task to be clean and test (which includes compilation)
