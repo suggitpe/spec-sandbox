@@ -80,7 +80,7 @@ This implementation plan breaks down the Recipe Manager mobile application into 
     - **Property 8: Shared Recipe Independence**
     - **Validates: Requirements 3.1, 3.3, 3.5**
 
-- [ ] 6. Implement recipe versioning and upgrades
+- [x] 6. Implement recipe versioning and upgrades
   - [x] 6.1 Create recipe version management system
     - Implement recipe upgrade functionality with parent linking
     - Create version history tracking
@@ -92,7 +92,8 @@ This implementation plan breaks down the Recipe Manager mobile application into 
     - Implement complete data rollback for recipe versions
     - _Requirements: 4.5_
 
-  - [ ]* 6.3 Write property tests for recipe versioning
+  - [x] 6.3 Write property tests for recipe versioning
+
     - **Property 9: Recipe Version Linking**
     - **Property 10: Version History Round-Trip**
     - **Validates: Requirements 4.1, 4.4, 4.5**
