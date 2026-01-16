@@ -126,12 +126,13 @@ This implementation plan breaks down the Recipe Manager mobile application into 
     - Add collection display and organization features
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-  - [ ]* 8.2 Write property tests for collections
+  - [x] 8.2 Write property tests for collections
+
     - **Property 14: Collection-Recipe Relationship Integrity**
     - **Property 15: Multi-Collection Membership**
     - **Validates: Requirements 6.2, 6.3, 6.4**
 
-- [ ] 9. Checkpoint - Ensure all core features work together
+- [x] 9. Checkpoint - Ensure all core features work together
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 10. Implement user interface components with Compose Multiplatform
