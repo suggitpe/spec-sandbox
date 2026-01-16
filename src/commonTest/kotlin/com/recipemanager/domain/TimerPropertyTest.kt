@@ -47,12 +47,12 @@ class TimerPropertyTest : FunSpec({
         mockNotificationService.reset()
     }
     
-    test("Property 11: Timer Creation Completeness - Feature: recipe-manager, Property 11: For any recipe with timed cooking steps, starting a cooking session should create active timers for all steps that specify duration").config(invocations = 5) {
+    test("Property 11: Timer Creation Completeness - Feature: recipe-manager, Property 11: For any recipe with timed cooking steps, starting a cooking session should create active timers for all steps that specify duration") {
         // Create a custom generator for ready timers with valid remaining time
         val readyTimerArb = arbitrary { rs ->
             val duration = Arb.int(10..60).bind()
             CookingTimer(
-                id = Arb.string(1..50).bind(),
+                id = "timer-${Clock.System.now().toEpochMilliseconds()}-${Arb.string(1..10).bind()}",
                 recipeId = Arb.string(1..50).bind(),
                 stepId = Arb.string(1..50).bind(),
                 duration = duration,
@@ -62,7 +62,7 @@ class TimerPropertyTest : FunSpec({
             )
         }
         
-        checkAll(5, readyTimerArb) { timer ->
+        checkAll(25, readyTimerArb) { timer ->
             // Start the timer
             val result = timerService.startTimer(timer)
             
@@ -96,11 +96,11 @@ class TimerPropertyTest : FunSpec({
         }
     }
     
-    test("Property 12: Timer Notification Reliability - Feature: recipe-manager, Property 12: For any active timer, when the countdown reaches zero, the system should trigger a notification regardless of app state").config(invocations = 3) {
+    test("Property 12: Timer Notification Reliability - Feature: recipe-manager, Property 12: For any active timer, when the countdown reaches zero, the system should trigger a notification regardless of app state") {
         // Create a custom generator for short-duration timers
         val shortTimerArb = arbitrary { rs ->
             CookingTimer(
-                id = Arb.string(1..50).bind(),
+                id = "timer-${Clock.System.now().toEpochMilliseconds()}-${Arb.string(1..10).bind()}",
                 recipeId = Arb.string(1..50).bind(),
                 stepId = Arb.string(1..50).bind(),
                 duration = 1, // 1 second for fast testing
@@ -110,7 +110,7 @@ class TimerPropertyTest : FunSpec({
             )
         }
         
-        checkAll(3, shortTimerArb) { timer ->
+        checkAll(15, shortTimerArb) { timer ->
             // Reset mock notification service
             mockNotificationService.reset()
             
@@ -137,8 +137,8 @@ class TimerPropertyTest : FunSpec({
         }
     }
     
-    test("Property 13: Multi-Timer State Management - Feature: recipe-manager, Property 13: For any number of active timers, the system should accurately track and display the remaining time for each timer independently").config(invocations = 5) {
-        checkAll(5, Arb.list(cookingTimerArb().filter { it.status == TimerStatus.READY && it.duration > 5 }, 2..5)) { timers ->
+    test("Property 13: Multi-Timer State Management - Feature: recipe-manager, Property 13: For any number of active timers, the system should accurately track and display the remaining time for each timer independently") {
+        checkAll(25, Arb.list(cookingTimerArb().filter { it.status == TimerStatus.READY && it.duration > 5 }, 2..5)) { timers ->
             // Ensure unique IDs
             val uniqueTimers = timers.mapIndexed { index, timer ->
                 timer.copy(

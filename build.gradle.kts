@@ -2,6 +2,7 @@ plugins {
     kotlin("multiplatform") version "1.9.21"
     kotlin("plugin.serialization") version "1.9.21"
     id("app.cash.sqldelight") version "2.0.1"
+    id("org.jetbrains.compose") version "1.5.11"
 }
 
 kotlin {
@@ -22,6 +23,12 @@ kotlin {
                 implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
                 implementation("app.cash.sqldelight:runtime:2.0.1")
                 implementation("app.cash.sqldelight:coroutines-extensions:2.0.1")
+                
+                // Compose Multiplatform
+                implementation(compose.runtime)
+                implementation(compose.foundation)
+                implementation(compose.material3)
+                implementation(compose.ui)
             }
         }
         
@@ -39,6 +46,7 @@ kotlin {
         val jvmMain by getting {
             dependencies {
                 implementation("app.cash.sqldelight:sqlite-driver:2.0.1")
+                implementation(compose.desktop.currentOs)
             }
         }
         

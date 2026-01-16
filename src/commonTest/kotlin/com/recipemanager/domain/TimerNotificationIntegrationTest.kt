@@ -90,11 +90,11 @@ class TimerNotificationIntegrationTest : FunSpec({
         // Wait for both timers to complete
         delay(1.5.seconds)
         
-        // Verify both notifications were sent
+        // Verify both notifications were sent (order may vary due to concurrency)
         mockNotificationService.timerNotifications.size shouldBe 2
         
-        val notifiedTimerIds = mockNotificationService.timerNotifications.map { it.first.id }
-        notifiedTimerIds shouldBe listOf("timer-2", "timer-3")
+        val notifiedTimerIds = mockNotificationService.timerNotifications.map { it.first.id }.toSet()
+        notifiedTimerIds shouldBe setOf("timer-2", "timer-3")
     }
     
     test("should not send notification when timer is cancelled") {
