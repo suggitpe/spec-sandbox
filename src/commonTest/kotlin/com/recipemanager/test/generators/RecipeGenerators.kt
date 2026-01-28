@@ -84,3 +84,48 @@ fun recipeCollectionArb(): Arb<RecipeCollection> = arbitrary { rs ->
         updatedAt = now
     )
 }
+
+// Navigation and State generators for property testing
+
+fun navigationStateArb(): Arb<com.recipemanager.presentation.navigation.NavigationState> = arbitrary { rs ->
+    com.recipemanager.presentation.navigation.NavigationState(
+        currentRoute = Arb.element(
+            "recipe_list",
+            "recipe_detail/recipe123",
+            "recipe_form",
+            "recipe_form?recipeId=recipe456",
+            "collection_list",
+            "collection_detail/collection789",
+            "cooking_mode/recipe123",
+            "photo_management/recipe456",
+            "share_recipe/recipe789",
+            "import_recipe"
+        ).bind(),
+        backStack = Arb.list(
+            Arb.element(
+                "recipe_list",
+                "recipe_detail/recipe123",
+                "collection_list",
+                "cooking_mode/recipe456"
+            ),
+            0..5
+        ).bind(),
+        timestamp = Arb.long(1000000000L..2000000000L).bind()
+    )
+}
+
+fun appStateMapArb(): Arb<Map<String, String>> = arbitrary { rs ->
+    val keys = listOf("lastViewedRecipe", "currentCollection", "cookingMode", "searchQuery", "filterTags")
+    val selectedKeys = Arb.list(Arb.element(keys), 0..keys.size).bind().distinct()
+    
+    selectedKeys.associateWith { key ->
+        when (key) {
+            "lastViewedRecipe" -> Arb.string(1..50).bind()
+            "currentCollection" -> Arb.string(1..50).bind()
+            "cookingMode" -> Arb.element("true", "false").bind()
+            "searchQuery" -> Arb.string(0..100).bind()
+            "filterTags" -> Arb.list(Arb.string(1..20), 0..5).bind().joinToString(",")
+            else -> Arb.string(0..100).bind()
+        }
+    }
+}

@@ -173,7 +173,7 @@ This implementation plan breaks down the Recipe Manager mobile application into 
     - Implement state persistence across app sessions
     - _Requirements: 7.5, 8.1, 8.2_
 
-  - [ ] 11.3 Write property tests for navigation and state
+  - [x] 11.3 Write property tests for navigation and state
 
     - **Property 16: Navigation State Preservation**
     - **Property 17: Data Persistence Round-Trip**
