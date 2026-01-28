@@ -1,22 +1,13 @@
 package com.recipemanager.presentation
 
 import androidx.compose.runtime.*
+import androidx.navigation.compose.rememberNavController
 import com.recipemanager.data.database.DatabaseDriverFactory
 import com.recipemanager.data.database.DatabaseManager
 import com.recipemanager.data.repository.RecipeRepositoryImpl
 import com.recipemanager.domain.validation.RecipeValidator
-import com.recipemanager.presentation.screens.RecipeDetailScreen
-import com.recipemanager.presentation.screens.RecipeFormScreen
-import com.recipemanager.presentation.screens.RecipeListScreen
-import com.recipemanager.presentation.viewmodel.RecipeDetailViewModel
-import com.recipemanager.presentation.viewmodel.RecipeFormViewModel
-import com.recipemanager.presentation.viewmodel.RecipeListViewModel
-
-sealed class Screen {
-    object RecipeList : Screen()
-    data class RecipeDetail(val recipeId: String) : Screen()
-    data class RecipeForm(val recipeId: String? = null) : Screen()
-}
+import com.recipemanager.presentation.navigation.*
+import kotlinx.coroutines.launch
 
 @Composable
 fun RecipeApp() {
@@ -34,59 +25,52 @@ fun RecipeApp() {
     
     val recipeValidator = remember { RecipeValidator() }
     
-    // Navigation state
-    var currentScreen by remember { mutableStateOf<Screen>(Screen.RecipeList) }
+    // Navigation and state management
+    val navController = rememberNavController()
+    val navigationStateManager = remember { NavigationStateManager() }
+    val statePersistenceManager = remember { 
+        AppStatePersistenceManager(JvmStatePersistence()) 
+    }
+    val deepLinkHandler = remember(navController) {
+        DeepLinkHandler(navController, navigationStateManager)
+    }
+    val coroutineScope = rememberCoroutineScope()
     
-    // ViewModels
-    val recipeListViewModel = remember {
-        RecipeListViewModel(recipeRepository)
+    // State restoration
+    var startDestination by remember { mutableStateOf(Routes.RECIPE_LIST) }
+    var isStateRestored by remember { mutableStateOf(false) }
+    
+    // Restore navigation state on app start
+    LaunchedEffect(Unit) {
+        val savedState = statePersistenceManager.loadNavigationState()
+        if (savedState != null) {
+            startDestination = savedState.currentRoute
+            // The navigation state manager will handle the restoration
+        }
+        isStateRestored = true
     }
     
-    val recipeDetailViewModel = remember {
-        RecipeDetailViewModel(recipeRepository)
+    // Save navigation state when it changes
+    LaunchedEffect(navigationStateManager.navigationState) {
+        if (isStateRestored) {
+            statePersistenceManager.saveNavigationState(navigationStateManager.navigationState)
+        }
     }
     
-    val recipeFormViewModel = remember {
-        RecipeFormViewModel(recipeRepository, recipeValidator)
+    // Handle deep links
+    LaunchedEffect(navController) {
+        // This would be called when the app receives a deep link
+        // For now, it's a placeholder for future deep link handling
     }
     
-    // Render current screen
-    when (val screen = currentScreen) {
-        is Screen.RecipeList -> {
-            RecipeListScreen(
-                viewModel = recipeListViewModel,
-                onRecipeClick = { recipeId ->
-                    currentScreen = Screen.RecipeDetail(recipeId)
-                },
-                onCreateRecipe = {
-                    currentScreen = Screen.RecipeForm()
-                }
-            )
-        }
-        is Screen.RecipeDetail -> {
-            RecipeDetailScreen(
-                recipeId = screen.recipeId,
-                viewModel = recipeDetailViewModel,
-                onBack = {
-                    currentScreen = Screen.RecipeList
-                },
-                onEdit = { recipeId ->
-                    currentScreen = Screen.RecipeForm(recipeId)
-                }
-            )
-        }
-        is Screen.RecipeForm -> {
-            RecipeFormScreen(
-                recipeId = screen.recipeId,
-                viewModel = recipeFormViewModel,
-                onBack = {
-                    currentScreen = Screen.RecipeList
-                },
-                onSaveSuccess = {
-                    currentScreen = Screen.RecipeList
-                    recipeListViewModel.loadRecipes()
-                }
-            )
-        }
+    // Only render navigation when state is restored
+    if (isStateRestored) {
+        RecipeNavHost(
+            navController = navController,
+            navigationStateManager = navigationStateManager,
+            recipeRepository = recipeRepository,
+            recipeValidator = recipeValidator,
+            startDestination = startDestination
+        )
     }
 }

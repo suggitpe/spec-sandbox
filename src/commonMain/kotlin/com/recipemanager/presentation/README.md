@@ -4,11 +4,43 @@ This package contains the presentation layer for the Recipe Manager application,
 
 ## Architecture
 
-The UI follows the MVVM (Model-View-ViewModel) pattern:
+The UI follows the MVVM (Model-View-ViewModel) pattern with proper navigation and state management:
 
 - **ViewModels**: Manage UI state and business logic
 - **Screens**: Composable UI components
-- **Navigation**: Simple screen-based navigation
+- **Navigation**: Compose Navigation with state persistence and deep linking support
+
+## Navigation System
+
+### Navigation Structure
+The application uses Compose Navigation with the following features:
+- **State Persistence**: Navigation state is preserved across app sessions
+- **Deep Linking**: Support for shared recipe and collection deep links
+- **Type-Safe Routes**: Centralized route definitions with parameter helpers
+
+### Routes
+All navigation routes are defined in `Routes.kt`:
+- `RECIPE_LIST`: Main recipe list screen
+- `RECIPE_DETAIL/{recipeId}`: Recipe detail view
+- `RECIPE_FORM?recipeId={recipeId}`: Create/edit recipe form
+- `COLLECTION_LIST`: Collection list screen
+- `COLLECTION_DETAIL/{collectionId}`: Collection detail view
+- `COOKING_MODE/{recipeId}`: Cooking assistance mode
+- `PHOTO_MANAGEMENT/{recipeId}`: Photo management interface
+- `IMPORT_RECIPE`: Recipe import screen
+- `SHARE_RECIPE/{recipeId}`: Recipe sharing interface
+
+### Deep Linking
+Supports deep links for sharing:
+- Recipe: `recipemanager://recipe/{recipeId}`
+- Collection: `recipemanager://collection/{collectionId}`
+- Web links: `https://recipemanager.app/recipe/{recipeId}`
+
+### State Persistence
+Navigation state is automatically saved and restored:
+- Current route and back stack are preserved
+- State survives app restarts and background/foreground transitions
+- Platform-specific storage (file system on JVM, preferences on mobile)
 
 ## Components
 
@@ -49,6 +81,7 @@ Displays a list of all recipes with:
 **Requirements Addressed:**
 - 1.1: Recipe creation (via FAB navigation)
 - 1.5: Recipe search functionality
+- 7.1: Navigation structure
 - 7.2: Large, readable text for cooking mode
 
 #### RecipeDetailScreen
@@ -63,6 +96,7 @@ Displays full recipe details including:
 
 **Requirements Addressed:**
 - 1.1: View recipe details
+- 7.1: Navigation structure
 - 7.2: Large, readable text for cooking mode
 
 #### RecipeFormScreen
@@ -79,14 +113,30 @@ Form for creating or editing recipes with:
 **Requirements Addressed:**
 - 1.1: Create new recipes
 - 1.2: Edit existing recipes
+- 7.1: Navigation structure
 - 7.2: Clear, usable interface
 
-### Navigation
+### Navigation Components
 
-The `RecipeApp` composable provides simple screen-based navigation:
-- `Screen.RecipeList`: Main recipe list
-- `Screen.RecipeDetail(recipeId)`: Recipe detail view
-- `Screen.RecipeForm(recipeId?)`: Create (null) or edit (with ID) recipe
+#### NavigationStateManager
+Manages navigation state and provides:
+- State serialization/deserialization
+- Navigation helper methods
+- Deep link handling
+- Back stack management
+
+#### AppStatePersistenceManager
+Handles state persistence across app sessions:
+- Saves/loads navigation state
+- Platform-specific storage implementation
+- Error handling and fallback to default state
+
+#### DeepLinkHandler
+Processes deep links for shared content:
+- Recipe deep link parsing and navigation
+- Collection deep link parsing and navigation
+- Web link support for cross-platform sharing
+- Link generation for sharing features
 
 ## Usage
 
@@ -107,21 +157,22 @@ fun main() = application {
 
 ### Integration
 
-To use these screens in your application:
+The main `RecipeApp` composable handles:
+1. Dependency initialization (database, repositories, validators)
+2. Navigation setup with state persistence
+3. Deep link handling
+4. State restoration on app start
 
-1. Initialize dependencies (DatabaseManager, RecipeRepository, RecipeValidator)
-2. Create ViewModels with the repository and validator
-3. Use the screen composables with appropriate callbacks for navigation
-
-Example:
+Example navigation usage:
 ```kotlin
-val recipeListViewModel = RecipeListViewModel(recipeRepository)
+// Navigate to recipe detail
+navController.navigate(Routes.recipeDetail("recipe123"))
 
-RecipeListScreen(
-    viewModel = recipeListViewModel,
-    onRecipeClick = { recipeId -> /* Navigate to detail */ },
-    onCreateRecipe = { /* Navigate to form */ }
-)
+// Navigate to recipe form for editing
+navController.navigate(Routes.recipeForm("recipe456"))
+
+// Navigate to recipe form for creation
+navController.navigate(Routes.recipeForm())
 ```
 
 ## Features
@@ -141,6 +192,12 @@ RecipeListScreen(
 - Loading states for async operations
 - Error handling with user-friendly messages
 - Success callbacks for navigation after save
+- Navigation state persistence across app sessions
+
+### Deep Linking
+- Support for shared recipe links
+- Automatic navigation to shared content
+- Fallback handling for invalid links
 
 ## Material Design 3
 
@@ -153,10 +210,16 @@ All screens use Material Design 3 components:
 - Chips for tags
 - Alert dialogs for adding items
 
+## Requirements Addressed
+
+- **7.1**: Navigation structure with clear visual indicators and deep linking support
+- **7.5**: State preservation across app sessions and navigation transitions
+- **8.1, 8.2**: Data persistence with automatic state saving and restoration
+
 ## Future Enhancements
 
 - Photo management UI (Task 10.2)
 - Cooking mode with timers (Task 10.3)
 - Collection management (Task 10.4)
-- Navigation state persistence (Task 11.1)
-- Deep linking support
+- Enhanced deep linking with parameter validation
+- Navigation animations and transitions

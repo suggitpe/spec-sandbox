@@ -3,14 +3,14 @@ package com.recipemanager.presentation.viewmodel
 import com.recipemanager.domain.model.Recipe
 import com.recipemanager.domain.repository.RecipeRepository
 import com.recipemanager.domain.service.ShareService
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.recipemanager.presentation.navigation.StatePersistence
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
+@Serializable
 data class ImportState(
     val importText: String = "",
     val previewRecipe: Recipe? = null,
@@ -23,13 +23,15 @@ data class ImportState(
 class ImportViewModel(
     private val recipeRepository: RecipeRepository,
     private val shareService: ShareService,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
+    statePersistence: StatePersistence? = null
+) : BaseViewModel<ImportState>(
+    initialState = ImportState(),
+    statePersistence = statePersistence,
+    stateKey = "import"
 ) {
-    private val _state = MutableStateFlow(ImportState())
-    val state: StateFlow<ImportState> = _state.asStateFlow()
 
     fun updateImportText(text: String) {
-        _state.value = _state.value.copy(
+        currentState = currentState.copy(
             importText = text,
             previewRecipe = null,
             error = null
@@ -37,36 +39,36 @@ class ImportViewModel(
     }
 
     fun validateAndPreview() {
-        val text = _state.value.importText
+        val text = currentState.importText
         if (text.isBlank()) {
-            _state.value = _state.value.copy(error = "Please enter recipe data")
+            setError("Please enter recipe data")
             return
         }
         
-        scope.launch {
-            _state.value = _state.value.copy(isValidating = true, error = null)
+        viewModelScope.launch {
+            currentState = currentState.copy(isValidating = true)
+            setError(null)
             
             shareService.importRecipe(text)
                 .onSuccess { recipe ->
-                    _state.value = _state.value.copy(
+                    currentState = currentState.copy(
                         previewRecipe = recipe,
                         isValidating = false
                     )
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        isValidating = false,
-                        error = error.message ?: "Invalid recipe data"
-                    )
+                    currentState = currentState.copy(isValidating = false)
+                    setError(error.message ?: "Invalid recipe data")
                 }
         }
     }
 
     fun importRecipe() {
-        val recipe = _state.value.previewRecipe ?: return
+        val recipe = currentState.previewRecipe ?: return
         
-        scope.launch {
-            _state.value = _state.value.copy(isImporting = true, error = null)
+        viewModelScope.launch {
+            currentState = currentState.copy(isImporting = true)
+            setError(null)
             
             // Create a new recipe with updated timestamps and new ID
             val now = Clock.System.now()
@@ -78,29 +80,39 @@ class ImportViewModel(
             
             recipeRepository.createRecipe(importedRecipe)
                 .onSuccess {
-                    _state.value = _state.value.copy(
+                    currentState = currentState.copy(
                         isImporting = false,
                         importSuccess = true
                     )
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        isImporting = false,
-                        error = error.message ?: "Failed to import recipe"
-                    )
+                    currentState = currentState.copy(isImporting = false)
+                    setError(error.message ?: "Failed to import recipe")
                 }
         }
     }
 
     fun reset() {
-        _state.value = ImportState()
-    }
-
-    fun clearError() {
-        _state.value = _state.value.copy(error = null)
+        currentState = ImportState()
     }
 
     private fun generateRecipeId(): String {
         return "recipe_${Clock.System.now().toEpochMilliseconds()}_${(0..999).random()}"
+    }
+    
+    override fun serializeState(state: ImportState): String? {
+        return try {
+            Json.encodeToString(state)
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    override fun deserializeState(serializedState: String): ImportState? {
+        return try {
+            Json.decodeFromString<ImportState>(serializedState)
+        } catch (e: Exception) {
+            null
+        }
     }
 }

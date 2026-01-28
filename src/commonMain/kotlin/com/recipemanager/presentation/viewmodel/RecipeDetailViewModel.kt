@@ -2,47 +2,88 @@ package com.recipemanager.presentation.viewmodel
 
 import com.recipemanager.domain.model.Recipe
 import com.recipemanager.domain.repository.RecipeRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.recipemanager.presentation.navigation.StatePersistence
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
+@Serializable
 data class RecipeDetailState(
+    val recipeId: String? = null,
     val recipe: Recipe? = null,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val lastLoadTime: Long = 0L
 )
 
 class RecipeDetailViewModel(
     private val recipeRepository: RecipeRepository,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
+    statePersistence: StatePersistence? = null
+) : BaseViewModel<RecipeDetailState>(
+    initialState = RecipeDetailState(),
+    statePersistence = statePersistence,
+    stateKey = "recipe_detail"
 ) {
-    private val _state = MutableStateFlow(RecipeDetailState())
-    val state: StateFlow<RecipeDetailState> = _state.asStateFlow()
-
-    fun loadRecipe(recipeId: String) {
-        scope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
-            
-            recipeRepository.getRecipe(recipeId)
-                .onSuccess { recipe ->
-                    _state.value = _state.value.copy(
-                        recipe = recipe,
-                        isLoading = false
-                    )
-                }
-                .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        error = error.message ?: "Failed to load recipe"
-                    )
-                }
+    
+    override fun onInitialize() {
+        // If we have a cached recipe and it's recent, don't reload
+        val shouldRefresh = currentState.recipe == null || 
+            (System.currentTimeMillis() - currentState.lastLoadTime) > 60_000 // 1 minute
+        
+        if (shouldRefresh && currentState.recipeId != null) {
+            loadRecipe(currentState.recipeId!!)
         }
     }
 
-    fun clearError() {
-        _state.value = _state.value.copy(error = null)
+    fun loadRecipe(recipeId: String) {
+        // Update the recipe ID in state for persistence
+        currentState = currentState.copy(recipeId = recipeId)
+        
+        viewModelScope.launch {
+            setLoading(true)
+            setError(null)
+            
+            recipeRepository.getRecipe(recipeId)
+                .onSuccess { recipe ->
+                    currentState = currentState.copy(
+                        recipe = recipe,
+                        isLoading = false,
+                        lastLoadTime = System.currentTimeMillis()
+                    )
+                    setLoading(false)
+                }
+                .onFailure { error ->
+                    setError(error.message ?: "Failed to load recipe")
+                    setLoading(false)
+                }
+        }
+    }
+    
+    fun refreshRecipe() {
+        currentState.recipeId?.let { recipeId ->
+            loadRecipe(recipeId)
+        }
+    }
+    
+    override fun onAppResumed() {
+        // Refresh recipe when app comes back to foreground
+        refreshRecipe()
+    }
+    
+    override fun serializeState(state: RecipeDetailState): String? {
+        return try {
+            Json.encodeToString(state)
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    override fun deserializeState(serializedState: String): RecipeDetailState? {
+        return try {
+            Json.decodeFromString<RecipeDetailState>(serializedState)
+        } catch (e: Exception) {
+            null
+        }
     }
 }

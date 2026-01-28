@@ -161,19 +161,20 @@ This implementation plan breaks down the Recipe Manager mobile application into 
     - _Requirements: 3.4, 6.1, 6.5_
 
 - [ ] 11. Implement navigation and state management
-  - [ ] 11.1 Set up Compose Navigation with state persistence
+  - [x] 11.1 Set up Compose Navigation with state persistence
     - Configure navigation structure for all screens
     - Implement navigation state preservation
     - Add deep linking support for shared recipes
     - _Requirements: 7.1, 7.5_
 
-  - [ ] 11.2 Implement ViewModel state management
+  - [x] 11.2 Implement ViewModel state management
     - Set up ViewModels for each screen with proper lifecycle handling
     - Create state management for recipes, photos, timers, and collections
     - Implement state persistence across app sessions
     - _Requirements: 7.5, 8.1, 8.2_
 
-  - [ ]* 11.3 Write property tests for navigation and state
+  - [ ] 11.3 Write property tests for navigation and state
+
     - **Property 16: Navigation State Preservation**
     - **Property 17: Data Persistence Round-Trip**
     - **Validates: Requirements 7.5, 8.1, 8.2**
@@ -191,7 +192,8 @@ This implementation plan breaks down the Recipe Manager mobile application into 
     - Add conflict resolution for simultaneous edits
     - _Requirements: 8.3, 8.4_
 
-  - [ ]* 12.3 Write property tests for cloud sync
+  - [ ] 12.3 Write property tests for cloud sync
+
     - **Property 18: Cloud Sync Consistency**
     - **Validates: Requirements 8.3**
 

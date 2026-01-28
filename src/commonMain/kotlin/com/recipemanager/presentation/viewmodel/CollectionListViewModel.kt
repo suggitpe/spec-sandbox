@@ -2,65 +2,90 @@ package com.recipemanager.presentation.viewmodel
 
 import com.recipemanager.domain.model.RecipeCollection
 import com.recipemanager.domain.repository.CollectionRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.recipemanager.presentation.navigation.StatePersistence
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
+@Serializable
 data class CollectionListState(
     val collections: List<RecipeCollection> = emptyList(),
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val lastRefreshTime: Long = 0L
 )
 
 class CollectionListViewModel(
     private val collectionRepository: CollectionRepository,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
+    statePersistence: StatePersistence? = null
+) : BaseViewModel<CollectionListState>(
+    initialState = CollectionListState(),
+    statePersistence = statePersistence,
+    stateKey = "collection_list"
 ) {
-    private val _state = MutableStateFlow(CollectionListState())
-    val state: StateFlow<CollectionListState> = _state.asStateFlow()
-
-    init {
-        loadCollections()
+    
+    override fun onInitialize() {
+        // Load collections if not recently loaded or if no collections cached
+        val shouldRefresh = currentState.collections.isEmpty() || 
+            (System.currentTimeMillis() - currentState.lastRefreshTime) > 300_000 // 5 minutes
+        
+        if (shouldRefresh) {
+            loadCollections()
+        }
     }
 
     fun loadCollections() {
-        scope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+        viewModelScope.launch {
+            setLoading(true)
+            setError(null)
             
             collectionRepository.getAllCollections()
                 .onSuccess { collections ->
-                    _state.value = _state.value.copy(
+                    currentState = currentState.copy(
                         collections = collections,
-                        isLoading = false
+                        isLoading = false,
+                        lastRefreshTime = System.currentTimeMillis()
                     )
+                    setLoading(false)
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        error = error.message ?: "Failed to load collections"
-                    )
+                    setError(error.message ?: "Failed to load collections")
+                    setLoading(false)
                 }
         }
     }
 
     fun deleteCollection(collectionId: String) {
-        scope.launch {
+        viewModelScope.launch {
             collectionRepository.deleteCollection(collectionId)
                 .onSuccess {
                     loadCollections()
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        error = error.message ?: "Failed to delete collection"
-                    )
+                    setError(error.message ?: "Failed to delete collection")
                 }
         }
     }
-
-    fun clearError() {
-        _state.value = _state.value.copy(error = null)
+    
+    override fun onAppResumed() {
+        // Refresh collections when app comes back to foreground
+        loadCollections()
+    }
+    
+    override fun serializeState(state: CollectionListState): String? {
+        return try {
+            Json.encodeToString(state)
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    override fun deserializeState(serializedState: String): CollectionListState? {
+        return try {
+            Json.decodeFromString<CollectionListState>(serializedState)
+        } catch (e: Exception) {
+            null
+        }
     }
 }

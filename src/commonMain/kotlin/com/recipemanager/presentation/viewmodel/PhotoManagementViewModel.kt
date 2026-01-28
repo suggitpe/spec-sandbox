@@ -4,13 +4,13 @@ import com.recipemanager.domain.model.Photo
 import com.recipemanager.domain.model.PhotoStage
 import com.recipemanager.domain.service.PhotoAssociationService
 import com.recipemanager.domain.service.PhotoCaptureService
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.recipemanager.presentation.navigation.StatePersistence
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
+@Serializable
 data class PhotoManagementState(
     val recipeId: String? = null,
     val photos: List<Photo> = emptyList(),
@@ -21,102 +21,116 @@ data class PhotoManagementState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val captionEditMode: Boolean = false,
-    val editingCaption: String = ""
+    val editingCaption: String = "",
+    val lastRefreshTime: Long = 0L
 )
 
 class PhotoManagementViewModel(
     private val photoCaptureService: PhotoCaptureService,
     private val photoAssociationService: PhotoAssociationService,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
+    statePersistence: StatePersistence? = null
+) : BaseViewModel<PhotoManagementState>(
+    initialState = PhotoManagementState(),
+    statePersistence = statePersistence,
+    stateKey = "photo_management"
 ) {
-    private val _state = MutableStateFlow(PhotoManagementState())
-    val state: StateFlow<PhotoManagementState> = _state.asStateFlow()
+    
+    override fun onInitialize() {
+        // Load photos if we have a recipe ID and haven't loaded recently
+        if (currentState.recipeId != null) {
+            val shouldRefresh = currentState.photos.isEmpty() || 
+                (System.currentTimeMillis() - currentState.lastRefreshTime) > 60_000 // 1 minute
+            
+            if (shouldRefresh) {
+                loadPhotos()
+            }
+        }
+    }
 
     fun setRecipeId(recipeId: String) {
-        _state.value = _state.value.copy(recipeId = recipeId)
+        currentState = currentState.copy(recipeId = recipeId)
         loadPhotos()
     }
 
     fun loadPhotos() {
-        val recipeId = _state.value.recipeId ?: return
+        val recipeId = currentState.recipeId ?: return
         
-        scope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+        viewModelScope.launch {
+            setLoading(true)
+            setError(null)
             
             photoAssociationService.getPhotosOrganizedByStage(recipeId)
                 .onSuccess { photosByStage ->
                     val allPhotos = photosByStage.values.flatten()
-                    _state.value = _state.value.copy(
+                    currentState = currentState.copy(
                         photos = allPhotos,
                         photosByStage = photosByStage,
-                        isLoading = false
+                        isLoading = false,
+                        lastRefreshTime = System.currentTimeMillis()
                     )
+                    setLoading(false)
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        error = error.message ?: "Failed to load photos"
-                    )
+                    setError(error.message ?: "Failed to load photos")
+                    setLoading(false)
                 }
         }
     }
 
     fun selectStage(stage: PhotoStage) {
-        _state.value = _state.value.copy(selectedStage = stage)
+        currentState = currentState.copy(selectedStage = stage)
     }
 
     fun capturePhoto(caption: String? = null) {
-        scope.launch {
-            _state.value = _state.value.copy(isCapturing = true, error = null)
+        viewModelScope.launch {
+            currentState = currentState.copy(isCapturing = true)
+            setError(null)
             
             photoCaptureService.capturePhoto(
-                stage = _state.value.selectedStage,
+                stage = currentState.selectedStage,
                 caption = caption
             )
                 .onSuccess { photo ->
-                    _state.value = _state.value.copy(isCapturing = false)
+                    currentState = currentState.copy(isCapturing = false)
                     loadPhotos() // Reload to show new photo
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        isCapturing = false,
-                        error = error.message ?: "Failed to capture photo"
-                    )
+                    currentState = currentState.copy(isCapturing = false)
+                    setError(error.message ?: "Failed to capture photo")
                 }
         }
     }
 
     fun importPhoto(sourcePath: String, caption: String? = null) {
-        scope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+        viewModelScope.launch {
+            setLoading(true)
+            setError(null)
             
             photoCaptureService.importPhoto(
                 sourcePath = sourcePath,
-                stage = _state.value.selectedStage,
+                stage = currentState.selectedStage,
                 caption = caption
             )
                 .onSuccess { photo ->
-                    _state.value = _state.value.copy(isLoading = false)
+                    setLoading(false)
                     loadPhotos() // Reload to show new photo
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        error = error.message ?: "Failed to import photo"
-                    )
+                    setError(error.message ?: "Failed to import photo")
+                    setLoading(false)
                 }
         }
     }
 
     fun selectPhoto(photo: Photo) {
-        _state.value = _state.value.copy(
+        currentState = currentState.copy(
             selectedPhoto = photo,
             editingCaption = photo.caption ?: ""
         )
     }
 
     fun deselectPhoto() {
-        _state.value = _state.value.copy(
+        currentState = currentState.copy(
             selectedPhoto = null,
             captionEditMode = false,
             editingCaption = ""
@@ -124,95 +138,105 @@ class PhotoManagementViewModel(
     }
 
     fun enableCaptionEdit() {
-        _state.value = _state.value.copy(captionEditMode = true)
+        currentState = currentState.copy(captionEditMode = true)
     }
 
     fun updateEditingCaption(caption: String) {
-        _state.value = _state.value.copy(editingCaption = caption)
+        currentState = currentState.copy(editingCaption = caption)
     }
 
     fun saveCaption() {
-        val photo = _state.value.selectedPhoto ?: return
-        val caption = _state.value.editingCaption
+        val photo = currentState.selectedPhoto ?: return
+        val caption = currentState.editingCaption
         
-        scope.launch {
+        viewModelScope.launch {
             photoCaptureService.updatePhotoCaption(photo.id, caption)
                 .onSuccess { updatedPhoto ->
-                    _state.value = _state.value.copy(
+                    currentState = currentState.copy(
                         selectedPhoto = updatedPhoto,
                         captionEditMode = false
                     )
                     loadPhotos() // Reload to show updated caption
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        error = error.message ?: "Failed to update caption"
-                    )
+                    setError(error.message ?: "Failed to update caption")
                 }
         }
     }
 
     fun cancelCaptionEdit() {
-        _state.value = _state.value.copy(
+        currentState = currentState.copy(
             captionEditMode = false,
-            editingCaption = _state.value.selectedPhoto?.caption ?: ""
+            editingCaption = currentState.selectedPhoto?.caption ?: ""
         )
     }
 
     fun deletePhoto(photoId: String) {
-        scope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+        viewModelScope.launch {
+            setLoading(true)
+            setError(null)
             
             photoAssociationService.deletePhotoWithAssociations(photoId)
                 .onSuccess {
-                    _state.value = _state.value.copy(
-                        isLoading = false,
+                    currentState = currentState.copy(
                         selectedPhoto = null
                     )
+                    setLoading(false)
                     loadPhotos() // Reload to remove deleted photo
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        error = error.message ?: "Failed to delete photo"
-                    )
+                    setError(error.message ?: "Failed to delete photo")
+                    setLoading(false)
                 }
         }
     }
 
     fun tagPhotoToIngredient(photoId: String, ingredientId: String) {
-        scope.launch {
+        viewModelScope.launch {
             photoAssociationService.tagPhotoToIngredient(photoId, ingredientId)
                 .onSuccess {
                     loadPhotos() // Reload to show updated associations
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        error = error.message ?: "Failed to tag photo to ingredient"
-                    )
+                    setError(error.message ?: "Failed to tag photo to ingredient")
                 }
         }
     }
 
     fun tagPhotoToCookingStep(photoId: String, stepId: String) {
-        scope.launch {
+        viewModelScope.launch {
             photoAssociationService.tagPhotoToCookingStep(photoId, stepId)
                 .onSuccess {
                     loadPhotos() // Reload to show updated associations
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        error = error.message ?: "Failed to tag photo to cooking step"
-                    )
+                    setError(error.message ?: "Failed to tag photo to cooking step")
                 }
         }
     }
 
     fun getPhotosForStage(stage: PhotoStage): List<Photo> {
-        return _state.value.photosByStage[stage] ?: emptyList()
+        return currentState.photosByStage[stage] ?: emptyList()
     }
-
-    fun clearError() {
-        _state.value = _state.value.copy(error = null)
+    
+    override fun onAppResumed() {
+        // Refresh photos when app comes back to foreground
+        loadPhotos()
+    }
+    
+    override fun serializeState(state: PhotoManagementState): String? {
+        return try {
+            Json.encodeToString(state)
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    override fun deserializeState(serializedState: String): PhotoManagementState? {
+        return try {
+            Json.decodeFromString<PhotoManagementState>(serializedState)
+        } catch (e: Exception) {
+            null
+        }
     }
 }

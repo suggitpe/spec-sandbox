@@ -6,21 +6,24 @@ import com.recipemanager.domain.model.Recipe
 import com.recipemanager.domain.model.TimerStatus
 import com.recipemanager.domain.repository.RecipeRepository
 import com.recipemanager.domain.service.TimerService
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.recipemanager.presentation.navigation.StatePersistence
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
+@Serializable
 data class CookingModeState(
+    val recipeId: String? = null,
     val recipe: Recipe? = null,
     val currentStepIndex: Int = 0,
     val activeTimers: Map<String, CookingTimer> = emptyMap(),
     val isLoading: Boolean = false,
     val error: String? = null,
-    val isCookingSessionActive: Boolean = false
+    val isCookingSessionActive: Boolean = false,
+    val sessionStartTime: Long = 0L,
+    val completedSteps: Set<Int> = emptySet()
 )
 
 /**
@@ -31,17 +34,24 @@ data class CookingModeState(
 class CookingModeViewModel(
     private val recipeRepository: RecipeRepository,
     private val timerService: TimerService,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
+    statePersistence: StatePersistence? = null
+) : BaseViewModel<CookingModeState>(
+    initialState = CookingModeState(),
+    statePersistence = statePersistence,
+    stateKey = "cooking_mode"
 ) {
-    private val _state = MutableStateFlow(CookingModeState())
-    val state: StateFlow<CookingModeState> = _state.asStateFlow()
 
-    init {
+    override fun onInitialize() {
         // Observe active timers from TimerService
-        scope.launch {
+        viewModelScope.launch {
             timerService.activeTimers.collect { timers ->
-                _state.value = _state.value.copy(activeTimers = timers)
+                currentState = currentState.copy(activeTimers = timers)
             }
+        }
+        
+        // If we have a cooking session in progress, restore it
+        if (currentState.isCookingSessionActive && currentState.recipeId != null) {
+            loadRecipeForSession(currentState.recipeId!!)
         }
     }
 
@@ -50,23 +60,29 @@ class CookingModeViewModel(
      * Requirement 5.4: Start cooking session
      */
     fun startCookingSession(recipeId: String) {
-        scope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+        currentState = currentState.copy(recipeId = recipeId)
+        loadRecipeForSession(recipeId)
+    }
+    
+    private fun loadRecipeForSession(recipeId: String) {
+        viewModelScope.launch {
+            setLoading(true)
+            setError(null)
             
             recipeRepository.getRecipe(recipeId)
                 .onSuccess { recipe ->
-                    _state.value = _state.value.copy(
+                    currentState = currentState.copy(
                         recipe = recipe,
                         currentStepIndex = 0,
                         isLoading = false,
-                        isCookingSessionActive = true
+                        isCookingSessionActive = true,
+                        sessionStartTime = System.currentTimeMillis()
                     )
+                    setLoading(false)
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        error = error.message ?: "Failed to load recipe"
-                    )
+                    setError(error.message ?: "Failed to load recipe")
+                    setLoading(false)
                 }
         }
     }
@@ -76,11 +92,14 @@ class CookingModeViewModel(
      * Requirement 7.2: Navigate through steps
      */
     fun nextStep() {
-        val recipe = _state.value.recipe ?: return
-        val currentIndex = _state.value.currentStepIndex
+        val recipe = currentState.recipe ?: return
+        val currentIndex = currentState.currentStepIndex
         
         if (currentIndex < recipe.steps.size - 1) {
-            _state.value = _state.value.copy(currentStepIndex = currentIndex + 1)
+            currentState = currentState.copy(
+                currentStepIndex = currentIndex + 1,
+                completedSteps = currentState.completedSteps + currentIndex
+            )
         }
     }
 
@@ -89,10 +108,10 @@ class CookingModeViewModel(
      * Requirement 7.2: Navigate through steps
      */
     fun previousStep() {
-        val currentIndex = _state.value.currentStepIndex
+        val currentIndex = currentState.currentStepIndex
         
         if (currentIndex > 0) {
-            _state.value = _state.value.copy(currentStepIndex = currentIndex - 1)
+            currentState = currentState.copy(currentStepIndex = currentIndex - 1)
         }
     }
 
@@ -101,11 +120,21 @@ class CookingModeViewModel(
      * Requirement 7.2: Navigate through steps
      */
     fun goToStep(stepIndex: Int) {
-        val recipe = _state.value.recipe ?: return
+        val recipe = currentState.recipe ?: return
         
         if (stepIndex in 0 until recipe.steps.size) {
-            _state.value = _state.value.copy(currentStepIndex = stepIndex)
+            currentState = currentState.copy(currentStepIndex = stepIndex)
         }
+    }
+    
+    /**
+     * Mark current step as completed.
+     */
+    fun markCurrentStepCompleted() {
+        val currentIndex = currentState.currentStepIndex
+        currentState = currentState.copy(
+            completedSteps = currentState.completedSteps + currentIndex
+        )
     }
 
     /**
@@ -113,10 +142,10 @@ class CookingModeViewModel(
      * Requirement 5.1: Create timers for timed cooking steps
      */
     fun startStepTimer(step: CookingStep) {
-        val recipe = _state.value.recipe ?: return
+        val recipe = currentState.recipe ?: return
         val duration = step.duration ?: return
         
-        scope.launch {
+        viewModelScope.launch {
             val timer = CookingTimer(
                 id = "${recipe.id}_${step.id}_${Clock.System.now().toEpochMilliseconds()}",
                 recipeId = recipe.id,
@@ -129,9 +158,7 @@ class CookingModeViewModel(
             
             timerService.startTimer(timer)
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        error = error.message ?: "Failed to start timer"
-                    )
+                    setError(error.message ?: "Failed to start timer")
                 }
         }
     }
@@ -141,12 +168,10 @@ class CookingModeViewModel(
      * Requirement 5.4: Pause timers
      */
     fun pauseTimer(timerId: String) {
-        scope.launch {
+        viewModelScope.launch {
             timerService.pauseTimer(timerId)
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        error = error.message ?: "Failed to pause timer"
-                    )
+                    setError(error.message ?: "Failed to pause timer")
                 }
         }
     }
@@ -156,12 +181,10 @@ class CookingModeViewModel(
      * Requirement 5.4: Resume timers
      */
     fun resumeTimer(timerId: String) {
-        scope.launch {
+        viewModelScope.launch {
             timerService.resumeTimer(timerId)
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        error = error.message ?: "Failed to resume timer"
-                    )
+                    setError(error.message ?: "Failed to resume timer")
                 }
         }
     }
@@ -171,12 +194,10 @@ class CookingModeViewModel(
      * Requirement 5.4: Cancel timers
      */
     fun cancelTimer(timerId: String) {
-        scope.launch {
+        viewModelScope.launch {
             timerService.cancelTimer(timerId)
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        error = error.message ?: "Failed to cancel timer"
-                    )
+                    setError(error.message ?: "Failed to cancel timer")
                 }
         }
     }
@@ -187,12 +208,12 @@ class CookingModeViewModel(
      */
     fun endCookingSession() {
         // Cancel all active timers
-        scope.launch {
-            _state.value.activeTimers.keys.forEach { timerId ->
+        viewModelScope.launch {
+            currentState.activeTimers.keys.forEach { timerId ->
                 timerService.cancelTimer(timerId)
             }
             
-            _state.value = CookingModeState()
+            currentState = CookingModeState()
         }
     }
 
@@ -200,8 +221,8 @@ class CookingModeViewModel(
      * Get the current step.
      */
     fun getCurrentStep(): CookingStep? {
-        val recipe = _state.value.recipe ?: return null
-        val index = _state.value.currentStepIndex
+        val recipe = currentState.recipe ?: return null
+        val index = currentState.currentStepIndex
         
         return recipe.steps.sortedBy { it.stepNumber }.getOrNull(index)
     }
@@ -213,12 +234,43 @@ class CookingModeViewModel(
     fun getTimersForCurrentStep(): List<CookingTimer> {
         val currentStep = getCurrentStep() ?: return emptyList()
         
-        return _state.value.activeTimers.values.filter { timer ->
+        return currentState.activeTimers.values.filter { timer ->
             timer.stepId == currentStep.id
         }
     }
-
-    fun clearError() {
-        _state.value = _state.value.copy(error = null)
+    
+    /**
+     * Get cooking session duration in milliseconds.
+     */
+    fun getSessionDuration(): Long {
+        return if (currentState.isCookingSessionActive) {
+            System.currentTimeMillis() - currentState.sessionStartTime
+        } else {
+            0L
+        }
+    }
+    
+    /**
+     * Check if all steps are completed.
+     */
+    fun isRecipeCompleted(): Boolean {
+        val recipe = currentState.recipe ?: return false
+        return currentState.completedSteps.size >= recipe.steps.size
+    }
+    
+    override fun serializeState(state: CookingModeState): String? {
+        return try {
+            Json.encodeToString(state)
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    override fun deserializeState(serializedState: String): CookingModeState? {
+        return try {
+            Json.decodeFromString<CookingModeState>(serializedState)
+        } catch (e: Exception) {
+            null
+        }
     }
 }

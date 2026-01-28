@@ -37,10 +37,12 @@ class CookingModeViewModelTest : FunSpec({
         recipeRepository = RecipeRepositoryImpl(databaseManager.getDatabase())
         timerRepository = TimerRepositoryImpl(databaseManager.getDatabase())
         timerService = TimerService(timerRepository)
-        viewModel = CookingModeViewModel(recipeRepository, timerService)
+        viewModel = CookingModeViewModel(recipeRepository, timerService, statePersistence = null)
+        viewModel.initialize()
     }
     
     afterEach {
+        viewModel.onCleared()
         timerService.shutdown()
         databaseManager.close()
     }

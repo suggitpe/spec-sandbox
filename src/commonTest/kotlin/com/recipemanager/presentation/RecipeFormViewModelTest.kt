@@ -28,10 +28,12 @@ class RecipeFormViewModelTest : FunSpec({
         databaseManager.initialize()
         recipeRepository = RecipeRepositoryImpl(databaseManager.getDatabase())
         recipeValidator = RecipeValidator()
-        viewModel = RecipeFormViewModel(recipeRepository, recipeValidator)
+        viewModel = RecipeFormViewModel(recipeRepository, recipeValidator, statePersistence = null)
+        viewModel.initialize()
     }
     
     afterEach {
+        viewModel.onCleared()
         databaseManager.close()
     }
     

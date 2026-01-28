@@ -25,10 +25,12 @@ class RecipeDetailViewModelTest : FunSpec({
         databaseManager = DatabaseManager(driverFactory)
         databaseManager.initialize()
         recipeRepository = RecipeRepositoryImpl(databaseManager.getDatabase())
-        viewModel = RecipeDetailViewModel(recipeRepository)
+        viewModel = RecipeDetailViewModel(recipeRepository, statePersistence = null)
+        viewModel.initialize()
     }
     
     afterEach {
+        viewModel.onCleared()
         databaseManager.close()
     }
     

@@ -2,89 +2,122 @@ package com.recipemanager.presentation.viewmodel
 
 import com.recipemanager.domain.model.Recipe
 import com.recipemanager.domain.repository.RecipeRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.recipemanager.presentation.navigation.StatePersistence
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
+@Serializable
 data class RecipeListState(
     val recipes: List<Recipe> = emptyList(),
     val filteredRecipes: List<Recipe> = emptyList(),
     val searchQuery: String = "",
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val lastRefreshTime: Long = 0L
 )
 
 class RecipeListViewModel(
     private val recipeRepository: RecipeRepository,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
+    statePersistence: StatePersistence? = null
+) : BaseViewModel<RecipeListState>(
+    initialState = RecipeListState(),
+    statePersistence = statePersistence,
+    stateKey = "recipe_list"
 ) {
-    private val _state = MutableStateFlow(RecipeListState())
-    val state: StateFlow<RecipeListState> = _state.asStateFlow()
-
-    init {
-        loadRecipes()
+    
+    override fun onInitialize() {
+        // Load recipes if not recently loaded or if no recipes cached
+        val shouldRefresh = currentState.recipes.isEmpty() || 
+            (System.currentTimeMillis() - currentState.lastRefreshTime) > 300_000 // 5 minutes
+        
+        if (shouldRefresh) {
+            loadRecipes()
+        }
     }
 
     fun loadRecipes() {
-        scope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+        viewModelScope.launch {
+            setLoading(true)
+            setError(null)
             
             recipeRepository.getAllRecipes()
                 .onSuccess { recipes ->
-                    _state.value = _state.value.copy(
+                    currentState = currentState.copy(
                         recipes = recipes,
-                        filteredRecipes = recipes,
-                        isLoading = false
+                        filteredRecipes = if (currentState.searchQuery.isBlank()) recipes 
+                                         else filterRecipes(recipes, currentState.searchQuery),
+                        isLoading = false,
+                        lastRefreshTime = System.currentTimeMillis()
                     )
+                    setLoading(false)
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        error = error.message ?: "Failed to load recipes"
-                    )
+                    setError(error.message ?: "Failed to load recipes")
+                    setLoading(false)
                 }
         }
     }
 
     fun searchRecipes(query: String) {
-        _state.value = _state.value.copy(searchQuery = query)
+        currentState = currentState.copy(searchQuery = query)
         
         if (query.isBlank()) {
-            _state.value = _state.value.copy(filteredRecipes = _state.value.recipes)
+            currentState = currentState.copy(filteredRecipes = currentState.recipes)
             return
         }
 
-        scope.launch {
+        viewModelScope.launch {
             recipeRepository.searchRecipes(query)
                 .onSuccess { results ->
-                    _state.value = _state.value.copy(filteredRecipes = results)
+                    currentState = currentState.copy(filteredRecipes = results)
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        error = error.message ?: "Search failed"
-                    )
+                    setError(error.message ?: "Search failed")
                 }
+        }
+    }
+    
+    private fun filterRecipes(recipes: List<Recipe>, query: String): List<Recipe> {
+        return recipes.filter { recipe ->
+            recipe.title.contains(query, ignoreCase = true) ||
+            recipe.description?.contains(query, ignoreCase = true) == true ||
+            recipe.tags.any { it.contains(query, ignoreCase = true) } ||
+            recipe.ingredients.any { it.name.contains(query, ignoreCase = true) }
         }
     }
 
     fun deleteRecipe(recipeId: String) {
-        scope.launch {
+        viewModelScope.launch {
             recipeRepository.deleteRecipe(recipeId)
                 .onSuccess {
                     loadRecipes()
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        error = error.message ?: "Failed to delete recipe"
-                    )
+                    setError(error.message ?: "Failed to delete recipe")
                 }
         }
     }
-
-    fun clearError() {
-        _state.value = _state.value.copy(error = null)
+    
+    override fun onAppResumed() {
+        // Refresh recipes when app comes back to foreground
+        loadRecipes()
+    }
+    
+    override fun serializeState(state: RecipeListState): String? {
+        return try {
+            Json.encodeToString(state)
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    override fun deserializeState(serializedState: String): RecipeListState? {
+        return try {
+            Json.decodeFromString<RecipeListState>(serializedState)
+        } catch (e: Exception) {
+            null
+        }
     }
 }

@@ -3,90 +3,105 @@ package com.recipemanager.presentation.viewmodel
 import com.recipemanager.domain.model.Recipe
 import com.recipemanager.domain.model.RecipeCollection
 import com.recipemanager.domain.repository.CollectionRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.recipemanager.presentation.navigation.StatePersistence
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
+@Serializable
 data class CollectionDetailState(
+    val collectionId: String? = null,
     val collection: RecipeCollection? = null,
     val recipes: List<Recipe> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
     val isEditing: Boolean = false,
     val editName: String = "",
-    val editDescription: String = ""
+    val editDescription: String = "",
+    val lastLoadTime: Long = 0L
 )
 
 class CollectionDetailViewModel(
-    private val collectionId: String,
     private val collectionRepository: CollectionRepository,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
+    statePersistence: StatePersistence? = null
+) : BaseViewModel<CollectionDetailState>(
+    initialState = CollectionDetailState(),
+    statePersistence = statePersistence,
+    stateKey = "collection_detail"
 ) {
-    private val _state = MutableStateFlow(CollectionDetailState())
-    val state: StateFlow<CollectionDetailState> = _state.asStateFlow()
-
-    init {
-        loadCollection()
+    
+    override fun onInitialize() {
+        // If we have a collection ID and haven't loaded recently, load it
+        if (currentState.collectionId != null) {
+            val shouldRefresh = currentState.collection == null || 
+                (System.currentTimeMillis() - currentState.lastLoadTime) > 60_000 // 1 minute
+            
+            if (shouldRefresh) {
+                loadCollection(currentState.collectionId!!)
+            }
+        }
+    }
+    
+    fun setCollectionId(collectionId: String) {
+        currentState = currentState.copy(collectionId = collectionId)
+        loadCollection(collectionId)
     }
 
-    fun loadCollection() {
-        scope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+    fun loadCollection(collectionId: String) {
+        currentState = currentState.copy(collectionId = collectionId)
+        
+        viewModelScope.launch {
+            setLoading(true)
+            setError(null)
             
             collectionRepository.getCollection(collectionId)
                 .onSuccess { collection ->
                     if (collection != null) {
-                        _state.value = _state.value.copy(
+                        currentState = currentState.copy(
                             collection = collection,
                             editName = collection.name,
-                            editDescription = collection.description ?: ""
+                            editDescription = collection.description ?: "",
+                            lastLoadTime = System.currentTimeMillis()
                         )
-                        loadRecipes()
+                        loadRecipes(collectionId)
                     } else {
-                        _state.value = _state.value.copy(
-                            isLoading = false,
-                            error = "Collection not found"
-                        )
+                        setError("Collection not found")
+                        setLoading(false)
                     }
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        error = error.message ?: "Failed to load collection"
-                    )
+                    setError(error.message ?: "Failed to load collection")
+                    setLoading(false)
                 }
         }
     }
 
-    private fun loadRecipes() {
-        scope.launch {
+    private fun loadRecipes(collectionId: String) {
+        viewModelScope.launch {
             collectionRepository.getRecipesInCollection(collectionId)
                 .onSuccess { recipes ->
-                    _state.value = _state.value.copy(
+                    currentState = currentState.copy(
                         recipes = recipes,
                         isLoading = false
                     )
+                    setLoading(false)
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        error = error.message ?: "Failed to load recipes"
-                    )
+                    setError(error.message ?: "Failed to load recipes")
+                    setLoading(false)
                 }
         }
     }
 
     fun startEditing() {
-        _state.value = _state.value.copy(isEditing = true)
+        currentState = currentState.copy(isEditing = true)
     }
 
     fun cancelEditing() {
-        val collection = _state.value.collection
-        _state.value = _state.value.copy(
+        val collection = currentState.collection
+        currentState = currentState.copy(
             isEditing = false,
             editName = collection?.name ?: "",
             editDescription = collection?.description ?: ""
@@ -94,53 +109,74 @@ class CollectionDetailViewModel(
     }
 
     fun updateName(name: String) {
-        _state.value = _state.value.copy(editName = name)
+        currentState = currentState.copy(editName = name)
     }
 
     fun updateDescription(description: String) {
-        _state.value = _state.value.copy(editDescription = description)
+        currentState = currentState.copy(editDescription = description)
     }
 
     fun saveChanges() {
-        val collection = _state.value.collection ?: return
+        val collection = currentState.collection ?: return
         
-        scope.launch {
+        viewModelScope.launch {
             val updatedCollection = collection.copy(
-                name = _state.value.editName,
-                description = _state.value.editDescription.takeIf { it.isNotBlank() },
+                name = currentState.editName,
+                description = currentState.editDescription.takeIf { it.isNotBlank() },
                 updatedAt = Clock.System.now()
             )
             
             collectionRepository.updateCollection(updatedCollection)
                 .onSuccess {
-                    _state.value = _state.value.copy(
+                    currentState = currentState.copy(
                         collection = updatedCollection,
                         isEditing = false
                     )
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        error = error.message ?: "Failed to update collection"
-                    )
+                    setError(error.message ?: "Failed to update collection")
                 }
         }
     }
 
     fun removeRecipe(recipeId: String) {
-        scope.launch {
+        val collectionId = currentState.collectionId ?: return
+        
+        viewModelScope.launch {
             collectionRepository.removeRecipeFromCollection(recipeId, collectionId)
                 .onSuccess {
-                    loadCollection()
+                    loadCollection(collectionId)
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        error = error.message ?: "Failed to remove recipe"
-                    )
+                    setError(error.message ?: "Failed to remove recipe")
                 }
         }
     }
-
-    fun clearError() {
-        _state.value = _state.value.copy(error = null)
+    
+    fun refreshCollection() {
+        currentState.collectionId?.let { collectionId ->
+            loadCollection(collectionId)
+        }
+    }
+    
+    override fun onAppResumed() {
+        // Refresh collection when app comes back to foreground
+        refreshCollection()
+    }
+    
+    override fun serializeState(state: CollectionDetailState): String? {
+        return try {
+            Json.encodeToString(state)
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    override fun deserializeState(serializedState: String): CollectionDetailState? {
+        return try {
+            Json.decodeFromString<CollectionDetailState>(serializedState)
+        } catch (e: Exception) {
+            null
+        }
     }
 }

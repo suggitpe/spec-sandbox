@@ -5,14 +5,14 @@ import com.recipemanager.domain.model.Ingredient
 import com.recipemanager.domain.model.Recipe
 import com.recipemanager.domain.repository.RecipeRepository
 import com.recipemanager.domain.validation.RecipeValidator
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.recipemanager.presentation.navigation.StatePersistence
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
+@Serializable
 data class RecipeFormState(
     val recipeId: String? = null,
     val title: String = "",
@@ -27,25 +27,37 @@ data class RecipeFormState(
     val isSaving: Boolean = false,
     val error: String? = null,
     val validationErrors: Map<String, String> = emptyMap(),
-    val saveSuccess: Boolean = false
+    val saveSuccess: Boolean = false,
+    val isDirty: Boolean = false, // Track if form has unsaved changes
+    val lastSaveTime: Long = 0L
 )
 
 class RecipeFormViewModel(
     private val recipeRepository: RecipeRepository,
     private val recipeValidator: RecipeValidator,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
+    statePersistence: StatePersistence? = null
+) : BaseViewModel<RecipeFormState>(
+    initialState = RecipeFormState(),
+    statePersistence = statePersistence,
+    stateKey = "recipe_form"
 ) {
-    private val _state = MutableStateFlow(RecipeFormState())
-    val state: StateFlow<RecipeFormState> = _state.asStateFlow()
+    
+    override fun onInitialize() {
+        // If we have a recipe ID in restored state, load it
+        currentState.recipeId?.let { recipeId ->
+            loadRecipe(recipeId)
+        }
+    }
 
     fun loadRecipe(recipeId: String) {
-        scope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+        viewModelScope.launch {
+            setLoading(true)
+            setError(null)
             
             recipeRepository.getRecipe(recipeId)
                 .onSuccess { recipe ->
                     recipe?.let {
-                        _state.value = _state.value.copy(
+                        currentState = currentState.copy(
                             recipeId = it.id,
                             title = it.title,
                             description = it.description ?: "",
@@ -55,82 +67,88 @@ class RecipeFormViewModel(
                             cookingTime = it.cookingTime,
                             servings = it.servings,
                             tags = it.tags,
-                            isLoading = false
+                            isLoading = false,
+                            isDirty = false
                         )
+                        setLoading(false)
                     }
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        error = error.message ?: "Failed to load recipe"
-                    )
+                    setError(error.message ?: "Failed to load recipe")
+                    setLoading(false)
                 }
         }
     }
 
     fun updateTitle(title: String) {
-        _state.value = _state.value.copy(title = title)
+        currentState = currentState.copy(title = title, isDirty = true)
         clearValidationError("title")
     }
 
     fun updateDescription(description: String) {
-        _state.value = _state.value.copy(description = description)
+        currentState = currentState.copy(description = description, isDirty = true)
     }
 
     fun updatePreparationTime(time: Int) {
-        _state.value = _state.value.copy(preparationTime = time.coerceAtLeast(0))
+        currentState = currentState.copy(preparationTime = time.coerceAtLeast(0), isDirty = true)
     }
 
     fun updateCookingTime(time: Int) {
-        _state.value = _state.value.copy(cookingTime = time.coerceAtLeast(0))
+        currentState = currentState.copy(cookingTime = time.coerceAtLeast(0), isDirty = true)
     }
 
     fun updateServings(servings: Int) {
-        _state.value = _state.value.copy(servings = servings.coerceAtLeast(1))
+        currentState = currentState.copy(servings = servings.coerceAtLeast(1), isDirty = true)
     }
 
     fun addIngredient(ingredient: Ingredient) {
-        _state.value = _state.value.copy(
-            ingredients = _state.value.ingredients + ingredient
+        currentState = currentState.copy(
+            ingredients = currentState.ingredients + ingredient,
+            isDirty = true
         )
         clearValidationError("ingredients")
     }
 
     fun removeIngredient(ingredientId: String) {
-        _state.value = _state.value.copy(
-            ingredients = _state.value.ingredients.filter { it.id != ingredientId }
+        currentState = currentState.copy(
+            ingredients = currentState.ingredients.filter { it.id != ingredientId },
+            isDirty = true
         )
     }
 
     fun addStep(step: CookingStep) {
-        _state.value = _state.value.copy(
-            steps = _state.value.steps + step
+        currentState = currentState.copy(
+            steps = currentState.steps + step,
+            isDirty = true
         )
         clearValidationError("steps")
     }
 
     fun removeStep(stepId: String) {
-        _state.value = _state.value.copy(
-            steps = _state.value.steps.filter { it.id != stepId }
+        currentState = currentState.copy(
+            steps = currentState.steps.filter { it.id != stepId },
+            isDirty = true
         )
     }
 
     fun addTag(tag: String) {
-        if (tag.isNotBlank() && !_state.value.tags.contains(tag)) {
-            _state.value = _state.value.copy(
-                tags = _state.value.tags + tag
+        if (tag.isNotBlank() && !currentState.tags.contains(tag)) {
+            currentState = currentState.copy(
+                tags = currentState.tags + tag,
+                isDirty = true
             )
         }
     }
 
     fun removeTag(tag: String) {
-        _state.value = _state.value.copy(
-            tags = _state.value.tags.filter { it != tag }
+        currentState = currentState.copy(
+            tags = currentState.tags.filter { it != tag },
+            isDirty = true
         )
     }
 
     fun saveRecipe() {
-        val currentState = _state.value
+        val currentState = this.currentState
         
         // Build recipe object
         val now = Clock.System.now()
@@ -161,12 +179,13 @@ class RecipeFormViewModel(
                     else -> errors["general"] = error
                 }
             }
-            _state.value = _state.value.copy(validationErrors = errors)
+            this.currentState = this.currentState.copy(validationErrors = errors)
             return
         }
 
-        scope.launch {
-            _state.value = _state.value.copy(isSaving = true, error = null)
+        viewModelScope.launch {
+            this@RecipeFormViewModel.currentState = this@RecipeFormViewModel.currentState.copy(isSaving = true)
+            setError(null)
             
             val result = if (currentState.recipeId != null) {
                 recipeRepository.updateRecipe(recipe)
@@ -176,35 +195,63 @@ class RecipeFormViewModel(
 
             result
                 .onSuccess {
-                    _state.value = _state.value.copy(
+                    this@RecipeFormViewModel.currentState = this@RecipeFormViewModel.currentState.copy(
                         isSaving = false,
-                        saveSuccess = true
+                        saveSuccess = true,
+                        isDirty = false,
+                        lastSaveTime = System.currentTimeMillis()
                     )
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        isSaving = false,
-                        error = error.message ?: "Failed to save recipe"
+                    this@RecipeFormViewModel.currentState = this@RecipeFormViewModel.currentState.copy(
+                        isSaving = false
                     )
+                    setError(error.message ?: "Failed to save recipe")
                 }
         }
     }
 
     private fun clearValidationError(field: String) {
-        _state.value = _state.value.copy(
-            validationErrors = _state.value.validationErrors.filterKeys { it != field }
+        currentState = currentState.copy(
+            validationErrors = currentState.validationErrors.filterKeys { it != field }
         )
     }
 
-    fun clearError() {
-        _state.value = _state.value.copy(error = null)
-    }
-
     fun resetSaveSuccess() {
-        _state.value = _state.value.copy(saveSuccess = false)
+        currentState = currentState.copy(saveSuccess = false)
     }
+    
+    fun resetForm() {
+        currentState = RecipeFormState()
+    }
+    
+    fun hasUnsavedChanges(): Boolean = currentState.isDirty
 
     private fun generateId(): String {
         return "recipe_${Clock.System.now().toEpochMilliseconds()}"
+    }
+    
+    override fun onAppPaused() {
+        super.onAppPaused()
+        // Auto-save draft if there are unsaved changes
+        if (currentState.isDirty && currentState.title.isNotBlank()) {
+            // Could implement auto-save to drafts here
+        }
+    }
+    
+    override fun serializeState(state: RecipeFormState): String? {
+        return try {
+            Json.encodeToString(state)
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    override fun deserializeState(serializedState: String): RecipeFormState? {
+        return try {
+            Json.decodeFromString<RecipeFormState>(serializedState)
+        } catch (e: Exception) {
+            null
+        }
     }
 }

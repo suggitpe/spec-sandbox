@@ -5,14 +5,15 @@ import com.recipemanager.domain.repository.RecipeRepository
 import com.recipemanager.domain.service.PlatformShareService
 import com.recipemanager.domain.service.ShareChannel
 import com.recipemanager.domain.service.ShareService
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.recipemanager.presentation.navigation.StatePersistence
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
+@Serializable
 data class ShareState(
+    val recipeId: String? = null,
     val recipe: Recipe? = null,
     val exportedData: String? = null,
     val availableChannels: List<ShareChannel> = emptyList(),
@@ -24,41 +25,48 @@ data class ShareState(
 )
 
 class ShareViewModel(
-    private val recipeId: String,
     private val recipeRepository: RecipeRepository,
     private val shareService: ShareService,
     private val platformShareService: PlatformShareService,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
+    statePersistence: StatePersistence? = null
+) : BaseViewModel<ShareState>(
+    initialState = ShareState(),
+    statePersistence = statePersistence,
+    stateKey = "share"
 ) {
-    private val _state = MutableStateFlow(ShareState())
-    val state: StateFlow<ShareState> = _state.asStateFlow()
-
-    init {
-        loadRecipe()
+    
+    override fun onInitialize() {
         loadAvailableChannels()
+        
+        // If we have a recipe ID in restored state, load it
+        currentState.recipeId?.let { recipeId ->
+            loadRecipe(recipeId)
+        }
+    }
+    
+    fun setRecipeId(recipeId: String) {
+        currentState = currentState.copy(recipeId = recipeId)
+        loadRecipe(recipeId)
     }
 
-    private fun loadRecipe() {
-        scope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+    private fun loadRecipe(recipeId: String) {
+        viewModelScope.launch {
+            setLoading(true)
+            setError(null)
             
             recipeRepository.getRecipe(recipeId)
                 .onSuccess { recipe ->
                     if (recipe != null) {
-                        _state.value = _state.value.copy(recipe = recipe)
+                        currentState = currentState.copy(recipe = recipe)
                         exportRecipe(recipe)
                     } else {
-                        _state.value = _state.value.copy(
-                            isLoading = false,
-                            error = "Recipe not found"
-                        )
+                        setError("Recipe not found")
+                        setLoading(false)
                     }
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        error = error.message ?: "Failed to load recipe"
-                    )
+                    setError(error.message ?: "Failed to load recipe")
+                    setLoading(false)
                 }
         }
     }
@@ -66,38 +74,38 @@ class ShareViewModel(
     private fun exportRecipe(recipe: Recipe) {
         shareService.exportRecipe(recipe)
             .onSuccess { jsonData ->
-                _state.value = _state.value.copy(
+                currentState = currentState.copy(
                     exportedData = jsonData,
                     isLoading = false
                 )
+                setLoading(false)
             }
             .onFailure { error ->
-                _state.value = _state.value.copy(
-                    isLoading = false,
-                    error = error.message ?: "Failed to export recipe"
-                )
+                setError(error.message ?: "Failed to export recipe")
+                setLoading(false)
             }
     }
 
     private fun loadAvailableChannels() {
         val channels = platformShareService.getAvailableChannels()
-        _state.value = _state.value.copy(
+        currentState = currentState.copy(
             availableChannels = channels,
             selectedChannel = channels.firstOrNull()
         )
     }
 
     fun selectChannel(channel: ShareChannel) {
-        _state.value = _state.value.copy(selectedChannel = channel)
+        currentState = currentState.copy(selectedChannel = channel)
     }
 
     fun shareRecipe() {
-        val data = _state.value.exportedData ?: return
-        val channel = _state.value.selectedChannel ?: return
-        val recipe = _state.value.recipe ?: return
+        val data = currentState.exportedData ?: return
+        val channel = currentState.selectedChannel ?: return
+        val recipe = currentState.recipe ?: return
         
-        scope.launch {
-            _state.value = _state.value.copy(isSharing = true, error = null)
+        viewModelScope.launch {
+            currentState = currentState.copy(isSharing = true)
+            setError(null)
             
             platformShareService.shareRecipe(
                 data = data,
@@ -105,48 +113,54 @@ class ShareViewModel(
                 title = "Share Recipe: ${recipe.title}"
             )
                 .onSuccess {
-                    _state.value = _state.value.copy(
+                    currentState = currentState.copy(
                         isSharing = false,
                         shareSuccess = true
                     )
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        isSharing = false,
-                        error = error.message ?: "Failed to share recipe"
-                    )
+                    currentState = currentState.copy(isSharing = false)
+                    setError(error.message ?: "Failed to share recipe")
                 }
         }
     }
 
     fun copyToClipboard() {
-        val data = _state.value.exportedData ?: return
+        val data = currentState.exportedData ?: return
         
-        scope.launch {
+        viewModelScope.launch {
             platformShareService.shareRecipe(
                 data = data,
                 channel = ShareChannel.CLIPBOARD,
                 title = "Recipe Data"
             )
                 .onSuccess {
-                    _state.value = _state.value.copy(
-                        shareSuccess = true,
-                        error = null
-                    )
+                    currentState = currentState.copy(shareSuccess = true)
+                    setError(null)
                 }
                 .onFailure { error ->
-                    _state.value = _state.value.copy(
-                        error = error.message ?: "Failed to copy to clipboard"
-                    )
+                    setError(error.message ?: "Failed to copy to clipboard")
                 }
         }
     }
 
     fun clearSuccess() {
-        _state.value = _state.value.copy(shareSuccess = false)
+        currentState = currentState.copy(shareSuccess = false)
     }
-
-    fun clearError() {
-        _state.value = _state.value.copy(error = null)
+    
+    override fun serializeState(state: ShareState): String? {
+        return try {
+            Json.encodeToString(state)
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    override fun deserializeState(serializedState: String): ShareState? {
+        return try {
+            Json.decodeFromString<ShareState>(serializedState)
+        } catch (e: Exception) {
+            null
+        }
     }
 }
