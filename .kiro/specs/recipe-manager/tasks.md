@@ -223,6 +223,29 @@ This implementation plan breaks down the Recipe Manager mobile application into 
 - [ ] 15. Final checkpoint - Complete system validation
   - Ensure all tests pass, ask the user if questions arise.
 
+- [ ] 16. Set up Android target and emulator deployment
+  - [ ] 16.1 Configure Android target in Kotlin Multiplatform
+    - Add Android plugin and target configuration to build.gradle.kts
+    - Set up Android-specific dependencies (Compose for Android, Activity Compose)
+    - Configure Android manifest and application class
+    - Add Android-specific database driver implementation
+    - _Requirements: 7.1, 7.2, 7.3_
+
+  - [ ] 16.2 Create Android application entry point
+    - Implement MainActivity with Compose integration
+    - Set up dependency injection for Android platform
+    - Configure Android-specific services (notifications, file storage)
+    - Add Android permissions for camera, storage, and notifications
+    - _Requirements: 2.1, 5.2, 8.1_
+
+  - [ ] 16.3 Deploy and test in Android emulator
+    - Create Android Virtual Device (AVD) configuration
+    - Build and install APK on emulator
+    - Test core functionality: recipe creation, photo capture, timers
+    - Verify navigation and state persistence on Android
+    - Test app lifecycle (background/foreground transitions)
+    - _Requirements: 7.5, 8.1, 8.2_
+
 ## Notes
 
 - Tasks marked with `*` are optional and can be skipped for faster MVP development
