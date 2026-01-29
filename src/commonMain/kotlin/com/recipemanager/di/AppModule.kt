@@ -1,5 +1,8 @@
 package com.recipemanager.di
 
+import com.recipemanager.data.cloud.CloudSyncManager
+import com.recipemanager.data.cloud.FirebaseConfig
+import com.recipemanager.data.cloud.FirebaseFactory
 import com.recipemanager.data.database.DatabaseDriverFactory
 import com.recipemanager.data.database.DatabaseManager
 import com.recipemanager.data.repository.RecipeRepositoryImpl
@@ -36,7 +39,8 @@ class AppModule(
     private val photoStorage: PhotoStorage,
     private val photoCaptureProvider: PhotoCaptureProvider,
     private val platformShareService: PlatformShareService,
-    private val notificationService: NotificationService
+    private val notificationService: NotificationService,
+    private val firebaseConfig: FirebaseConfig = FirebaseConfig.DEFAULT
 ) {
     
     private val databaseManager: DatabaseManager by lazy {
@@ -45,6 +49,20 @@ class AppModule(
     
     private val database: RecipeDatabase by lazy {
         databaseManager.initialize()
+    }
+    
+    private val firebaseFactory: FirebaseFactory by lazy {
+        FirebaseFactory().apply {
+            initialize(firebaseConfig)
+        }
+    }
+    
+    val cloudSyncManager: CloudSyncManager by lazy {
+        CloudSyncManager(
+            auth = firebaseFactory.createAuth(),
+            storage = firebaseFactory.createStorage(),
+            firestore = firebaseFactory.createFirestore()
+        )
     }
     
     private val recipeValidator: RecipeValidator by lazy {

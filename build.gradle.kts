@@ -32,6 +32,11 @@ kotlin {
                 
                 // Navigation
                 implementation("org.jetbrains.androidx.navigation:navigation-compose:2.7.0-alpha07")
+                
+                // HTTP client for Firebase REST API
+                implementation("io.ktor:ktor-client-core:2.3.7")
+                implementation("io.ktor:ktor-client-content-negotiation:2.3.7")
+                implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
             }
         }
         
@@ -50,6 +55,9 @@ kotlin {
             dependencies {
                 implementation("app.cash.sqldelight:sqlite-driver:2.0.1")
                 implementation(compose.desktop.currentOs)
+                
+                // HTTP client for JVM
+                implementation("io.ktor:ktor-client-cio:2.3.7")
             }
         }
         
