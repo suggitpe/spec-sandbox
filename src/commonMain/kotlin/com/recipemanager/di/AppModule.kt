@@ -6,6 +6,7 @@ import com.recipemanager.data.cloud.FirebaseFactory
 import com.recipemanager.data.database.DatabaseDriverFactory
 import com.recipemanager.data.database.DatabaseManager
 import com.recipemanager.data.repository.RecipeRepositoryImpl
+import com.recipemanager.data.repository.SyncAwareRecipeRepositoryImpl
 import com.recipemanager.data.repository.PhotoRepositoryImpl
 import com.recipemanager.data.repository.RecipeVersionRepositoryImpl
 import com.recipemanager.data.repository.RecipeSnapshotRepositoryImpl
@@ -29,6 +30,8 @@ import com.recipemanager.domain.service.RecipeVersionManager
 import com.recipemanager.domain.service.NotificationService
 import com.recipemanager.domain.service.NotificationManager
 import com.recipemanager.domain.service.TimerService
+import com.recipemanager.domain.service.SyncService
+import com.recipemanager.domain.service.SyncServiceImpl
 import com.recipemanager.domain.usecase.RecipeUseCases
 import com.recipemanager.domain.usecase.ShareRecipeUseCase
 import com.recipemanager.domain.usecase.ImportRecipeUseCase
@@ -40,7 +43,8 @@ class AppModule(
     private val photoCaptureProvider: PhotoCaptureProvider,
     private val platformShareService: PlatformShareService,
     private val notificationService: NotificationService,
-    private val firebaseConfig: FirebaseConfig = FirebaseConfig.DEFAULT
+    private val firebaseConfig: FirebaseConfig = FirebaseConfig.DEFAULT,
+    private val enableCloudSync: Boolean = true
 ) {
     
     private val databaseManager: DatabaseManager by lazy {
@@ -61,8 +65,13 @@ class AppModule(
         CloudSyncManager(
             auth = firebaseFactory.createAuth(),
             storage = firebaseFactory.createStorage(),
-            firestore = firebaseFactory.createFirestore()
+            firestore = firebaseFactory.createFirestore(),
+            database = database
         )
+    }
+    
+    val syncService: SyncService by lazy {
+        SyncServiceImpl(cloudSyncManager)
     }
     
     private val recipeValidator: RecipeValidator by lazy {
@@ -70,7 +79,11 @@ class AppModule(
     }
     
     val recipeRepository: RecipeRepository by lazy {
-        RecipeRepositoryImpl(database)
+        if (enableCloudSync) {
+            SyncAwareRecipeRepositoryImpl(database, cloudSyncManager)
+        } else {
+            RecipeRepositoryImpl(database)
+        }
     }
     
     val photoRepository: PhotoRepository by lazy {
